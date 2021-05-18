@@ -1,0 +1,12 @@
+[submodule "framework"]
+	path = framework
+	url = https://github.com/llxp/chain-factory-framework.git
+[submodule "backend-api"]
+	path = backend-api
+	url = https://github.com/llxp/chain-factory-backend-api.git
+[submodule "authentication-api"]
+	path = authentication-api
+	url = https://github.com/llxp/chain-factory-authentication-api.git
+[submodule "docker"]
+	path = docker
+	url = https://github.com/llxp/chain-factory-docker.git
