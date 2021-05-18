@@ -6,7 +6,7 @@
 	url = https://github.com/llxp/chain-factory-backend-api.git
 [submodule "authentication-api"]
 	path = authentication-api
-	url = https://github.com/llxp/chain-factory-authentication-api.git
+	url = https://github.com/llxp/flask-authentication-api.git
 [submodule "docker"]
 	path = docker
 	url = https://github.com/llxp/chain-factory-docker.git
