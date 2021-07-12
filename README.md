@@ -18,7 +18,9 @@ A framework to dispatch tasks fetched from an amqp queue to several worker nodes
 start the dev backend using the prepared docker-compose file
 
     cd docker
+    ./prepare_build.sh
     docker-compose build
+    ./cleanup_build.sh
     docker-compose up -d
 
 ### worker node

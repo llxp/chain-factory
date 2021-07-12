@@ -10,3 +10,6 @@
 [submodule "docker"]
 	path = docker
 	url = https://github.com/llxp/chain-factory-docker.git
+[submodule "webui"]
+	path = webui
+	url = https://github.com/llxp/chain-factory-webui.git
