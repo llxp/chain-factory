@@ -1,0 +1,3 @@
+[submodule "src/framework"]
+	path = src/api/framework
+	url = https://github.com/llxp/chain-factory-framework
