@@ -1,14 +1,16 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends
 from odmantic import AIOEngine
+from motor.motor_asyncio import AsyncIOMotorCollection
+from collections import ChainMap
 
-from framework.src.chain_factory.task_queue.models.\
-    mongodb_models import Task, TaskLog
-from ...auth.depends import CheckScope
+from ...auth.depends import CheckScope, get_username
 from .utils import (
     get_odm_session,
-    facet, match, project, limit_stage, skip_stage, lookup_logs
+    facet, match, project, limit_stage, skip_stage, lookup_logs,
+    get_allowed_namespaces,
 )
+from .models.namespace import Namespace
 
 
 api = APIRouter()
@@ -18,12 +20,18 @@ user_role = Depends(CheckScope(scope='user'))
 @api.get('/task_logs', dependencies=[user_role])
 async def task_log(
     task_id: str,
+    namespaces: List[str] = Depends(get_allowed_namespaces),
+    username: str = Depends(get_username),
     page: Optional[int] = None,
     page_size: Optional[int] = None,
     database: AIOEngine = Depends(get_odm_session),
 ):
-    collection = database.get_collection(TaskLog)
-    log_result = await collection.aggregate([
+    namespace_dbs = await Namespace.get_namespace_dbs(
+        database, username)
+    collections: List[AsyncIOMotorCollection] = [
+        db.get_collection("logs") for db in namespace_dbs
+    ]
+    pipeline = [
         match({'task_id': task_id}),
         project({
             'log_line': 1,
@@ -46,8 +54,12 @@ async def task_log(
                 '$first': '$total_count.count'
             }
         })
-    ])
-    return (await log_result.to_list(1))[0]
+    ]
+    aggregations = [
+        doc for collection in collections
+        async for doc in collection.aggregate(pipeline)
+    ]
+    return aggregations[0]
 
 
 @api.get('/workflow_logs', dependencies=[user_role])
@@ -56,9 +68,15 @@ async def workflow_logs(
     database: AIOEngine = Depends(get_odm_session),
     page: Optional[int] = None,
     page_size: Optional[int] = None,
+    namespaces: List[str] = Depends(get_allowed_namespaces),
+    username: str = Depends(get_username),
 ):
-    collection = database.get_collection(Task)
-    log_result = await collection.aggregate([
+    namespace_dbs = await Namespace.get_namespace_dbs(
+        database, username)
+    collections: List[AsyncIOMotorCollection] = [
+        db.get_collection("task_workflow_association") for db in namespace_dbs
+    ]
+    pipeline = [
         lookup_logs('task.task_id', 'logs'),
         project({
             '_id': 0,
@@ -91,5 +109,10 @@ async def workflow_logs(
                 '$first': '$total_count.count'
             }
         }),
-    ])
-    return (await log_result.to_list(1))[0]
+    ]
+    aggregations = [
+        doc for collection in collections
+        async for doc in collection.aggregate(pipeline)
+    ]
+    results = dict(ChainMap(*aggregations))
+    return results

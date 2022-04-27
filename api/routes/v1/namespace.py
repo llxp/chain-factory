@@ -17,7 +17,8 @@ async def namespaces(
     username: str = Depends(get_username),
 ):
     return await database.find(Namespace, (
-        Namespace.allowed_users.in_([username]) & (Namespace.enabled)
+        Namespace.allowed_users.in_([username]) &
+        (Namespace.enabled == True)  # noqa: E712
     ))
 
 
@@ -43,7 +44,6 @@ async def create_namespace(
             updated_at=datetime.utcnow(),
             allowed_users=[username]
         ))
-        print(namespace_result)
         return NamespaceCreatedResponse(
             namespace=str(namespace_result.inserted_id)
         )

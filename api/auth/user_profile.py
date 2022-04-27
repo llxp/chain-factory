@@ -50,8 +50,7 @@ async def user_profile(
     idp_credentials: Credentials = Depends(get_idp_credentials)
 ):
     username = idp_credentials.username
-    idp_config_cursor = await IdpDomainConfig.get(
-        database, username)
+    idp_config_cursor = await IdpDomainConfig.get(database, username)
     if idp_config_cursor:
         async for idp_config in idp_config_cursor:
             response = await get_user_information_by_config(

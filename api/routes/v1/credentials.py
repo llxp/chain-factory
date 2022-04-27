@@ -49,7 +49,6 @@ async def create_credentials(
     return the password to retrieve the credentials.
     Return an error if the namespace does not exist
     """
-    print(database)
     if await Namespace.is_allowed(namespace, database, username):
         domain = await get_domain(username)
         info("namespace found")
@@ -114,14 +113,10 @@ async def get_credentials(
             info("credentials found")
             # decrypt the credentials
             try:
-                print(key)
-                print(credentials)
                 credentials_data: str = decrypt(credentials.credentials, key)
-                print(credentials_data)
                 credentials_data = ManagementCredentialsCollection.parse_raw(
                     credentials_data)
                 credentials.credentials = credentials_data
-                del ManagementCredentials.id
                 return credentials
             except Exception as e:
                 error(e)

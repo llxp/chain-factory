@@ -43,14 +43,15 @@ async def create_token(
     if db_token:
         username = token.username
         scopes = db_token.scopes
-        return TokenResponse.create_token(
-            hostname, username, scopes, key)
+        return TokenResponse.create_token(hostname, username, scopes, key)
     raise HTTPException(status_code=401, detail='Token is revoked')
 
 
 async def find_refresh_token(database: AIOEngine, jti: str):
     return await database.find_one(
         RefreshToken,
-        RefreshToken.jti == jti,
-        RefreshToken.revoked == False  # noqa
+        (
+            (RefreshToken.jti == jti) &
+            (RefreshToken.revoked == False)  # noqa
+        )
     )

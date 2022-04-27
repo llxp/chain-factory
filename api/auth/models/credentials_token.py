@@ -66,12 +66,13 @@ class CredentialsToken(BaseModel):
 
     def check_token(self):
         now = timegm(datetime.utcnow().utctimetuple())
-        nbf = now
-        print(now, self.nbf, self.exp)
-        expired_gt_nbf = self.exp > nbf
+        expired_gt_nbf = self.exp > self.nbf
         expired_lt_now = self.exp < now
         nbf_lt_exp = self.nbf < self.exp
-        print(datetime.fromtimestamp(self.exp), datetime.fromtimestamp(
-            now), datetime.fromtimestamp(self.nbf))
-        print(expired_gt_nbf, expired_lt_now, nbf_lt_exp)
-        return expired_gt_nbf and not expired_lt_now and nbf_lt_exp
+        nbf_lt_now = self.nbf < now
+        return (
+            expired_gt_nbf and
+            not expired_lt_now and
+            nbf_lt_exp and
+            nbf_lt_now
+        )

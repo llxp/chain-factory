@@ -1,7 +1,9 @@
+from logging import debug
 from fastapi import Depends, APIRouter, HTTPException
 from odmantic import AIOEngine
 from httpx import AsyncClient
 from json import dumps
+from cgi import parse_header
 
 from .models.translate_users_response import TranslateUsersResponse
 from .models.translate_users_request import TranslateUsersRequest
@@ -48,9 +50,41 @@ async def translate_users(
                             }),
                             headers=headers
                         )
-                    if translate_users_response.status_code == 200:
+
+                    def get_content_type(response):
+                        content_type = response.headers.get('Content-Type')
+                        if content_type:
+                            content_type, _ = parse_header(content_type)
+                            return content_type
+                        return None
+
+                    if (
+                        translate_users_response.status_code == 200 and
+                        get_content_type(
+                            translate_users_response) == 'application/json'
+                    ):
                         response_json = translate_users_response.json()
-                        return TranslateUsersResponse(**response_json)
+                        debug(response_json)
+                        if response_json.get('users'):
+                            if isinstance(
+                                response_json.get('users'), list
+                            ):
+                                return TranslateUsersResponse(
+                                    users=response_json.get('users')
+                                )
+                            elif isinstance(
+                                response_json.get('users'), dict
+                            ):
+                                debug(response_json.get('users').values())
+                                return TranslateUsersResponse(
+                                    users=list(
+                                        response_json.get('users').values())
+                                )
+                            else:
+                                return TranslateUsersResponse(
+                                    users=[response_json.get('users')]
+                                )
+                        return response_json
         raise HTTPException(
             status_code=404, detail='No idp endpoint found')
     raise HTTPException(

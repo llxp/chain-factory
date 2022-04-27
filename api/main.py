@@ -1,6 +1,8 @@
+from logging import debug
 from os import getenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from odmantic import AIOEngine
 from motor.motor_asyncio import AsyncIOMotorClient
 from amqpstorm.management import ManagementApi
@@ -20,9 +22,7 @@ server_secret = getenv(
     "0d763e4211a42b77e54a2f0a694c1f538bac8479da31a6926024bd445213ceef"
 )
 postgres_url = getenv(
-    "POSTGRES_URL",
-    "postgres://postgres:postgres@localhost:5432/postgres"
-)
+    "POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/postgres")
 postgres_url = postgres_url.replace('postgres://', 'postgresql+asyncpg://')
 mongodb_url = getenv(
     "MONGODB_URL",
@@ -32,17 +32,33 @@ mongodb_database = getenv("MONGODB_DATABASE", "test")
 redis_url = getenv("REDIS_URL", "redis://localhost")
 translate_users_username = getenv("IDP_USERNAME", "llxp@jumpcloud.com")
 translate_users_password = getenv("IDP_PASSWORD", "WmNNJPf7wTurU9t")
-rabbitmq_management_host = getenv(
-    "RABBITMQ_MANAGEMENT_HOST", "127.0.0.1")
+rabbitmq_management_host = getenv("RABBITMQ_MANAGEMENT_HOST", "127.0.0.1")
 rabbitmq_management_user = getenv("RABBITMQ_MANAGEMENT_USER", "guest")
 rabbitmq_management_pass = getenv("RABBITMQ_MANAGEMENT_PASS", "guest")
 rabbitmq_management_port = getenv("RABBITMQ_MANAGEMENT_PORT", 15672)
 rabbitmq_url = getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 origins = getenv("DEFAULT_CORS_ORIGINS", default_cors_origins)
+syslog_address = getenv("SYSLOG_ADDRESS", "127.0.0.1")
+syslog_facility = getenv("SYSLOG_FACILITY", "local0")
+syslog_level = getenv("SYSLOG_LEVEL", "DEBUG")
+syslog_port = getenv("SYSLOG_PORT", 514)
+syslog_local = getenv("SYSLOG_LOCAL", False)
+syslog_enabled = getenv("SYSLOG_ENABLED", True)
 # --------------------------------
 
+
+async def not_found(request, exc):
+    print(request.url)
+    print(await request.json())
+    return HTMLResponse(content="<h1>404 NOT FOUND</h1>", status_code=exc.status_code)  # noqa: E501
+
+
+exceptions = {
+    404: not_found,
+}
+
 # initialize fastapi
-app = FastAPI()
+app = FastAPI(exception_handlers=exceptions)
 app.include_router(auth_api, prefix="/auth")
 app.include_router(api, prefix="/api")
 app.add_middleware(
@@ -81,10 +97,14 @@ async def set_request_parameter(request: Request, call_next):
     request.state.server_secret = server_secret
     request.state.odm_session = odm_session
     request.state.idp_credentials = Credentials(
-        username=translate_users_username,
-        password=translate_users_password
-    )
+        username=translate_users_username, password=translate_users_password)
     request.state.redis_client = redis_client
     request.state.rabbitmq_management_api = rabbitmq_management_api
     request.state.rabbitmq_url = rabbitmq_url
     return await call_next(request)
+
+
+@app.get("/health")
+async def health():
+    debug("health check")
+    return {"status": "ok"}

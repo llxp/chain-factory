@@ -6,12 +6,13 @@ from typing import Optional, List
 from odmantic import AIOEngine
 
 from framework.src.chain_factory.task_queue.models.\
-    mongodb_models import RegisteredTask
-from ...auth.depends import CheckScope
+    mongodb_models import NodeTasks
+from ...auth.depends import CheckScope, get_username
 from .utils import (
     default_namespace, get_odm_session, get_redis_client, node_active,
     unwind, match, project, skip_stage, limit_stage
 )
+from .models.namespace import Namespace
 
 
 api = APIRouter()
@@ -23,6 +24,7 @@ async def active_tasks(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
     redis_client: Redis = Depends(get_redis_client),
+    username: str = Depends(get_username),
     search: Optional[str] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
@@ -31,6 +33,7 @@ async def active_tasks(
     active_nodes = await nodes(namespace, database, redis_client)
     tasks_result = await tasks(
         namespace,
+        username,
         search,
         database,
         page,
@@ -40,23 +43,27 @@ async def active_tasks(
     return tasks_result
 
 
-async def nodes(namespace: str, database: AIOEngine, redis_client: Redis):
-    node_list: List[str] = []
+async def nodes(
+    namespace: str,
+    database: AIOEngine,
+    redis_client: Redis
+) -> List[NodeTasks]:
+    node_list: List[NodeTasks] = []
 
     def match_namespace():
         query = {}
         if not default_namespace(namespace):
-            return (RegisteredTask.namespace == namespace)
+            return (NodeTasks.namespace == namespace)
         return query
 
-    node_name_list = database.find(RegisteredTask, (
+    node_name_list = database.find(NodeTasks, (
         (match_namespace())
     ))
     async for node_name in node_name_list:
         if (
             await node_active(
-                node_name["node_name"],
-                node_name["namespace"],
+                node_name.node_name,
+                node_name.namespace,
                 redis_client
             )
         ):
@@ -66,11 +73,12 @@ async def nodes(namespace: str, database: AIOEngine, redis_client: Redis):
 
 async def tasks(
     namespace: str,
+    username: str,
     search: str,
     database: AIOEngine,
     page: int = None,
     page_size: int = None,
-    nodes=[],
+    nodes: List[NodeTasks] = [],
 ):
     unwind_stage = unwind("$tasks")
 
@@ -81,12 +89,12 @@ async def tasks(
             stage["$match"] = {"tasks.name": {"$regex": rgx}}
         if not default_namespace(namespace):
             stage["$match"]["namespace"] = namespace
-        if nodes or nodes is None:
+        if nodes:
             stage["$match"]["node_name"] = {
-                "$in": [node["node_name"] for node in (nodes if nodes else [])]
+                "$in": [node.node_name for node in (nodes if nodes else [])]
             }
             stage["$match"]["namespace"] = {
-                "$in": [node["namespace"] for node in (nodes if nodes else [])]
+                "$in": [node.namespace for node in (nodes if nodes else [])]
             }
         return stage
 
@@ -117,8 +125,14 @@ async def tasks(
         ]
         if stage != {}
     ]
-    collection = database.get_collection(RegisteredTask)
-    result = await collection.aggregate(aggregate_query)
+    namespace_db = await Namespace.get_namespace_db(
+        database, namespace, username)
+    if namespace_db:
+        collection = namespace_db.get_collection(NodeTasks.__collection__)
+        result_cursor = collection.aggregate(aggregate_query)
+        result = await result_cursor.to_list(None)
+    else:
+        result = []
     return (
         result[0]
         if len(result) > 0

@@ -1,0 +1,43 @@
+FROM nginx/unit:1.26.1-python3.10
+
+RUN apt update && apt install -y python3-pip curl && \
+    rm -rf /var/lib/apt/lists/*
+COPY ./requirements.txt /config/
+RUN pip3 install --no-cache-dir -r /config/requirements.txt
+
+RUN mkdir -p /www/
+
+COPY ./ /www/
+#COPY ./framework /www/framework/
+COPY ./api/config.json /docker-entrypoint.d/
+
+# Server secret used for encryption
+# generate using openssl rand -hex 32
+ENV SERVER_SECRET=""
+# Postgresql connection string
+ENV POSTGRES_URL=""
+# MongoDB connection string
+ENV MONGODB_URL=""
+# MongoDB database name
+ENV MONGODB_DATABASE=""
+# Redis connection string
+ENV REDIS_URL=""
+# idp credentials, passed to the authentication api
+ENV IDP_USERNAME=""
+ENV IDP_PASSWORD=""
+# Rabbitmq management credentials
+ENV RABBITMQ_MANAGEMENT_HOST=""
+ENV RABBITMQ_MANAGEMENT_USER=""
+ENV RABBITMQ_MANAGEMENT_PASS=""
+ENV RABBITMQ_MANAGEMENT_PORT=""
+# Rabbitmq amqp connection url
+ENV RABBITMQ_URL=""
+# Optional
+# Only used to override the default values
+ENV DEFAULT_CORS_ORIGINS=""
+# Optional
+# Only used for explicit override
+ENV RABBITMQ_MANAGEMENT_URL=""
+
+
+EXPOSE 8000

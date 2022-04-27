@@ -1,0 +1,12 @@
+FROM python:3.10-slim
+
+RUN mkdir -p /app
+
+WORKDIR /app
+
+COPY ./ /app/
+
+RUN ls -la /app
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD [ "python", "./main_worker.py" ]

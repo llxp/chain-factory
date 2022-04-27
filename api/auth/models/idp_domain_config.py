@@ -31,8 +31,8 @@ class IdpDomainConfig(Model):
     ) -> List['IdpDomainConfig']:
         domain = await get_domain(username)
         if domain:
-            return database.find(
-                IdpDomainConfig,
-                IdpDomainConfig.domain == domain
-            )
+            return database.find(IdpDomainConfig, (
+                (IdpDomainConfig.domain == domain) &
+                (IdpDomainConfig.enabled == True)  # noqa: E712
+            ))
         return None

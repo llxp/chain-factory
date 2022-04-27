@@ -36,8 +36,10 @@ async def new_task(
         domain = await get_domain(username)
         domain_snake_case = domain.replace('.', '_')
         vhost = namespace + '_' + domain_snake_case
-        rabbitmq_client = get_rabbitmq_client(vhost, rabbitmq_url)
-        rabbitmq_client.send(new_task.json())
+        rabbitmq_client = await get_rabbitmq_client(
+            vhost, namespace, rabbitmq_url)
+        for i in range(0, 1):
+            await rabbitmq_client.send(new_task.json())
         return TaskCreatedResponse(message="Task created")
     raise HTTPException(
         status_code=404, detail="Namespace not found or you don't have access")

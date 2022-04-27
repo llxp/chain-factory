@@ -1,3 +1,4 @@
+from collections import ChainMap
 from logging import debug
 from re import compile, UNICODE
 from bson.regex import Regex
@@ -5,16 +6,15 @@ from fastapi import APIRouter, Depends, Query
 from typing import Optional, List
 
 from odmantic import AIOEngine
+from motor.motor_asyncio import AsyncIOMotorCollection
 
-from framework.src.chain_factory.task_queue.models.mongodb_models import (
-    Task, Workflow
-)
-from ...auth.depends import CheckScope
+from ...auth.depends import CheckScope, get_username
 from .utils import (
-    get_odm_session, match, project, lookup,
+    get_allowed_namespaces, get_odm_session, match, project, lookup,
     sort_stage, skip_stage, limit_stage,
     lookup_logs, default_namespace, lookup_workflow_status
 )
+from .models.namespace import Namespace
 
 
 api = APIRouter()
@@ -23,15 +23,16 @@ user_role = Depends(CheckScope(scope='user'))
 
 @api.get('/workflows', dependencies=[user_role])
 async def workflows(
-    namespace: str,
+    namespaces: List[str] = Depends(get_allowed_namespaces),
     database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
     search: Optional[str] = None,
     page: Optional[int] = None,
     page_size: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ):
-    # time.sleep(5)
+    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
 
     def search_stage():
         stages = []
@@ -133,10 +134,10 @@ async def workflows(
                 stage['$match']['$and'].append({
                     '$and': patterns
                 })
-        if namespace and not default_namespace(namespace):
-            stage['$match']['$and'].append({
-                'workflow.namespace': namespace
-            })
+        # if namespace and not default_namespace(namespace):
+        #     stage['$match']['$and'].append({
+        #         'workflow.namespace': namespace
+        #     })
         stages.append(stage)
         if len(stages) >= 2:
             stages.append(project({key: 0 for key in keys}))
@@ -219,62 +220,85 @@ async def workflows(
         ] if stage != {}
     ]
 
-    collection = database.get_collection(Workflow)
-    workflow_tasks = await collection.aggregate(pipeline)
-    return workflow_tasks[0]
+    collections: List[AsyncIOMotorCollection] = [
+        db.get_collection("workflow") for db in namespace_dbs
+    ]
+    # workflow_tasks = collection.aggregate(pipeline)
+    aggregations = [
+        doc for collection in collections
+        async for doc in collection.aggregate(pipeline)
+    ]
+    return aggregations[0]
 
 
 @api.get('/workflow_tasks', dependencies=[user_role])
 async def workflow_tasks(
     workflow_id: str,
+    namespace: str,
     database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
     page: Optional[int] = None,
     page_size: Optional[int] = None,
 ):
-    collection = database.get_collection(Task)
-    log_result = await collection.aggregate([
-        project({'_id': 0}),
-        match({'workflow_id': workflow_id}),
-        {
-            "$facet": {
-                "tasks": [
-                    stage2
-                    for stage2 in [
-                        skip_stage(page, page_size),
-                        limit_stage(page, page_size)
-                    ]
-                    if stage2 != {}
-                ],
-                "total_count": [{"$count": "count"}],
-            }
-        },
-        project({
-            'tasks': '$tasks.task',
-            'total_count': {
-                '$first': '$total_count.count'
-            }
-        })
-    ])
-    return log_result[0]
+    if Namespace.is_allowed(namespace, database, username):
+        pipeline = [
+            project({'_id': 0}),
+            match({'workflow_id': workflow_id}),
+            {
+                "$facet": {
+                    "tasks": [
+                        stage2
+                        for stage2 in [
+                            skip_stage(page, page_size),
+                            limit_stage(page, page_size)
+                        ]
+                        if stage2 != {}
+                    ],
+                    "total_count": [{"$count": "count"}],
+                }
+            },
+            project({
+                'tasks': '$tasks.task',
+                'total_count': {
+                    '$first': '$total_count.count'
+                }
+            })
+        ]
+        namespace_db = await Namespace.get_namespace_db(
+            database, namespace, username)
+        collection = namespace_db.get_collection("task_workflow_association")
+        log_result = await collection.aggregate(pipeline).to_list(1)
+        return log_result[0]
+    return {
+        'tasks': [],
+        'total_count': 0
+    }
 
 
 @api.get('/workflow_status', dependencies=[user_role])
 async def workflow_status(
     database: AIOEngine = Depends(get_odm_session),
+    namespaces: List[str] = Depends(get_allowed_namespaces),
     workflow_id: List[str] = Query([]),
+    username: str = Depends(get_username),
 ):
+    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
+
     def match_stage():
         stage = match({})
         if isinstance(workflow_id, str):
             stage["$match"]['workflow_id'] = workflow_id
-        elif isinstance(workflow_id, list):
+        elif isinstance(workflow_id, list) and len(workflow_id) > 0:
             stage["$match"]['workflow_id'] = {
                 '$in': workflow_id
             }
         return stage
 
-    collection = database.get_collection(Workflow)
-    log_result = await collection.aggregate([
+    collections = [
+        db.get_collection("workflow_status")
+        for db in namespace_dbs
+    ]
+    pipeline = [
         match_stage(),
         lookup_workflow_status('workflow_id', 'workflow_status'),
         project({
@@ -290,7 +314,7 @@ async def workflow_status(
             'workflow_status': 1,
             '_id': 0
         }),
-        lookup('tasks', 'workflow_id', 'workflow_id', 'tasks'),
+        lookup('task_workflow_association', 'workflow_id', 'workflow_id', 'tasks'),  # noqa: E501
         project({
             'status': '$status',
             'workflow_id': 1,
@@ -339,15 +363,24 @@ async def workflow_status(
                 }
             }
         })
-    ])
-    return log_result
+    ]
+    aggregations = [
+        doc for collection in collections
+        async for doc in collection.aggregate(pipeline)
+    ]
+    return aggregations
 
 
-@api.get('/workflow_metrics', dependencies=[])
+@api.get('/workflow_metrics', dependencies=[user_role])
 async def workflow_metrics(
     namespace: str,
-    database: AIOEngine = Depends(get_odm_session)
+    database: AIOEngine = Depends(get_odm_session),
+    namespaces: List[str] = Depends(get_allowed_namespaces),
+    username: str = Depends(get_username),
 ):
+    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
+    collections = [db.get_collection("workflow") for db in namespace_dbs]
+
     def match_stage():
         stage = match({})
         if not default_namespace(namespace):
@@ -386,5 +419,9 @@ async def workflow_metrics(
         })
     ]
     debug(pipeline)
-    collection = database.get_collection(Workflow)
-    return await collection.aggregate(pipeline)
+    aggregations = [
+        doc for collection in collections
+        async for doc in collection.aggregate(pipeline)
+    ]
+    results = dict(ChainMap(*aggregations))
+    return results

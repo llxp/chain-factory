@@ -1,0 +1,174 @@
+// MongoDB Playground
+// To disable this template go to Settings | MongoDB | Use Default Template For Playground.
+// Make sure you are connected to enable completions and to be able to run a playground.
+// Use Ctrl+Space inside a snippet or a string literal to trigger completions.
+
+// Select the database to use.
+use('test01_jumpcloud_com');
+
+db.node_tasks.aggregate(
+  {'$match': {'namespace': 'test01'}}, {'$unwind': '$tasks'}, {'$match': {'namespace': 'test01'}}, {'$project': {'_id': 0}}, {'$facet': {'node_tasks': [], 'total_count': [{'$count': 'count'}]}}, {'$project': {'node_tasks': 1, 'total_count': {'$first': '$total_count.count'}}}
+);
+db.task_workflow_association.aggregate(
+  [{'$project': {'_id': 0}}, {'$match': {'workflow_id': 'a0f3675a-af52-11ec-8b1a-faffc2426d3b-55462e3f-857b-4ffd-9a6a-c8b91eceeb4b'}}, {'$facet': {'tasks': [{'$skip': 0}, {'$limit': 10000}], 'total_count': [{'$count': 'count'}]}}, {'$project': {'tasks': '$tasks.task', 'total_count': {'$first': '$total_count.count'}}}]
+)
+
+db.task_workflow_association.aggregate(
+  [
+    {
+      '$lookup': {
+        'from': 'logs',
+        'localField': 'task.task_id',
+        'foreignField': 'task_id',
+        'as': 'logs'
+      }
+    },
+    {
+      '$project': {
+        '_id': 0,
+        'logs._id': 0,
+        'logs.task_id': 0,
+        'task.name': 0,
+        'task.arguments': 0
+      }
+    },
+    {
+      '$match': {
+        'workflow_id': '2d609838-bbd9-11ec-a30a-faffc2426d3b-46c3a422-d8d9-477f-91ba-e7c5d6f6af40'
+      }
+    },
+    {
+      '$project': {
+        'task_id': '$task.task_id',
+        'logs': '$logs.log_line'
+      }
+    },
+    {
+      '$facet': {
+        'task_logs': [],
+        'total_count': [
+          {
+            '$count': 'count'
+          }
+        ]
+      }
+    },
+    {
+      '$project': {
+        'task_logs': 1,
+        'total_count': {
+          '$first': '$total_count.count'
+        }
+      }
+    }
+  ]
+)
+
+db.workflow.aggregate(
+  [
+    {
+      '$match': {
+        'workflow_id': {
+          '$in': [
+            '2d609838-bbd9-11ec-a30a-faffc2426d3b-46c3a422-d8d9-477f-91ba-e7c5d6f6af40'
+          ]
+        }
+      }
+    },
+    {
+      '$lookup': {
+        'from': 'workflow_status',
+        'localField': 'workflow_id',
+        'foreignField': 'workflow_id',
+        'as': 'workflow_status'
+      }
+    },
+    {
+      '$project': {
+        'status': {
+          '$ifNull': [
+            {
+              '$first': '$workflow_status.status'
+            },
+            'Running'
+          ]
+        },
+        'workflow_id': 1,
+        'workflow_status': 1,
+        '_id': 0
+      }
+    },
+    {
+      '$lookup': {
+        'from': 'task_workflow_association',
+        'localField': 'workflow_id',
+        'foreignField': 'workflow_id',
+        'as': 'tasks'
+      }
+    },
+    {
+      '$project': {
+        'status': '$status',
+        'workflow_id': 1,
+        'tasks.task.task_id': 1
+      }
+    },
+    {
+      '$lookup': {
+        'from': 'task_status',
+        'localField': 'tasks.task.task_id',
+        'foreignField': 'task_id',
+        'as': 'task_status1'
+      }
+    },
+    {
+      '$addFields': {
+        'tasks': {
+          '$map': {
+            'input': '$tasks',
+            'as': 'row',
+            'in': {
+              '$mergeObjects': [
+                '$$row',
+                {
+                  '$first': {
+                    '$filter': {
+                      'input': '$task_status1',
+                      'cond': {
+                        '$eq': [
+                          '$$this.task_id',
+                          '$$row.task.task_id'
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      '$project': {
+        'status': 1,
+        'workflow_id': 1,
+        'tasks': {
+          '$map': {
+            'input': '$tasks',
+            'as': 'row',
+            'in': {
+              'task_id': '$$row.task.task_id',
+              'status': {
+                '$ifNull': [
+                  '$$row.status',
+                  'Running'
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+)

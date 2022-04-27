@@ -73,7 +73,7 @@ class MongoDBCredentials(EmbeddedModel):
             password=password,
             host=host,
             port=port,
-            url=f'mongodb://{username}:{password}@{host}:{port}/{db_name}',
+            url=f'mongodb://{username}:{password}@{host}:{port}/{db_name}'
         )
 
 
@@ -138,7 +138,7 @@ class RabbitMQCredentials(EmbeddedModel):
 
 
 class RedisCredentials(EmbeddedModel):
-    database: str
+    key_prefix: str
     username: str
     password: str
     host: str
@@ -172,15 +172,21 @@ class RedisCredentials(EmbeddedModel):
             passwords='+'+password,
             reset_passwords=False,
             reset=True,
-            commands=['+set'],
+            commands=[
+                '+set',
+                '+get',
+                '+subscribe',
+                '+unsubscribe',
+                '+publish',
+            ],
         )
         return cls(
-            database=db_name,
+            key_prefix=db_name,
             username=username,
             password=password,
             host=host,
             port=port,
-            url=f"redis://{username}:{password}@{host}:{port}/{db_name}",
+            url=f"redis://{username}:{password}@{host}:{port}",
         )
 
 
@@ -219,9 +225,6 @@ class ManagementCredentialsCollection(EmbeddedModel):
         redis = await RedisCredentials.new(
             redis_client, namespace, domain, email, redis_host, redis_port
         )
-        print(mongodb)
-        print(rabbitmq)
-        print(redis)
         return cls(
             mongodb=mongodb,
             rabbitmq=rabbitmq,

@@ -1,8 +1,10 @@
+from distutils.log import debug
 from http.client import HTTPException
 from aioredis import Redis
-from fastapi import Request
+from fastapi import Request, Depends
 from datetime import datetime
 from cryptography.fernet import Fernet
+from odmantic import AIOEngine
 
 from framework.src.chain_factory.task_queue.common.settings import (
     heartbeat_redis_key, heartbeat_sleep_time
@@ -11,6 +13,8 @@ from framework.src.chain_factory.task_queue.models.redis_models import (
     Heartbeat
 )
 from framework.src.chain_factory.task_queue.wrapper.rabbitmq import RabbitMQ
+from ...auth.depends import get_username
+from .models.namespace import Namespace
 
 
 def default_namespace(namespace):
@@ -104,13 +108,25 @@ def add_fields(fields):
     return {"$addFields": fields}
 
 
-async def node_active(node_name: str, namespace: str, redis_client: Redis):
-    redis_key = heartbeat_redis_key + "_" + namespace + "_" + node_name
-    node_status_bytes = redis_client.get(redis_key)
+async def node_active(
+    node_name: str,
+    namespace: str,
+    domain: str,
+    redis_client: Redis
+):
+    domain_snake_case = domain.replace(".", "_")
+    redis_key = (
+        namespace + "_" +
+        domain_snake_case + "_" +
+        heartbeat_redis_key + "_" +
+        node_name
+    )
+    debug("Checking node active: " + redis_key)
+    node_status_bytes = await redis_client.get(redis_key)
     if node_status_bytes is not None:
         node_status_string = node_status_bytes.decode("utf-8")
         if len(node_status_string) > 0:
-            heartbeat_status: Heartbeat = Heartbeat.from_json(
+            heartbeat_status: Heartbeat = Heartbeat.parse_raw(
                 node_status_string)
             last_time_seen = heartbeat_status.last_time_seen
             now = datetime.utcnow()
@@ -120,12 +136,14 @@ async def node_active(node_name: str, namespace: str, redis_client: Redis):
     return False
 
 
-def get_rabbitmq_client(namespace: str, rabbitmq_url: str):
-    return RabbitMQ(
-        url=rabbitmq_url,
-        queue_name=namespace + "_" + "task_queue",
-        rmq_type="publisher"
+async def get_rabbitmq_client(vhost: str, namespace: str, rabbitmq_url: str):
+    client = RabbitMQ(
+        url=rabbitmq_url + vhost,
+        queue_name=namespace + "_task_queue",
+        rmq_type="publisher",
     )
+    await client.init()
+    return client
 
 
 async def get_odm_session(request: Request):
@@ -133,6 +151,20 @@ async def get_odm_session(request: Request):
         return request.state.odm_session
     except AttributeError:
         raise HTTPException(status_code=500, detail="ODM session not set")
+
+
+async def get_allowed_namespaces(
+    request: Request,
+    namespace: str,
+    database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
+):
+    if namespace == "default" or namespace == "all":
+        return await Namespace.get_allowed(database, username)
+    if await Namespace.is_allowed(namespace, database, username):
+        return [namespace]
+    raise HTTPException(
+        status_code=403, detail="Namespace not allowed or not found")
 
 
 async def get_redis_client(request: Request):

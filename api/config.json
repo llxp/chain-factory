@@ -1,0 +1,14 @@
+{
+  "listeners": {
+    "*:8000": {
+      "pass":"applications/webapp"
+    }
+  },
+  "applications":{
+    "webapp":{
+      "type":"python 3",
+      "path":"/www/",
+      "module":"app"
+    }
+  }
+}

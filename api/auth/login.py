@@ -1,3 +1,4 @@
+from logging import error, info
 from fastapi import APIRouter, Depends, Request, HTTPException
 from httpx import ConnectError, ConnectTimeout
 from odmantic import AIOEngine
@@ -38,11 +39,11 @@ async def login(
         if idp_config:
             config: IdpDomainConfig = None
             async for config in idp_config:
-                print(config.domain)
                 user_information = await get_user_information(
                     credentials, config)
                 if user_information:
                     hostname = request.url.hostname
+                    info(user_information)
                     return dict(
                         access_token=await create_token(
                             hostname,
@@ -61,6 +62,7 @@ async def login(
                             token_type='bearer'
                         )
                     )
+    info(f"login failed for user {credentials.username}")
     raise HTTPException(status_code=403, detail='authentication failed')
 
 
@@ -95,13 +97,11 @@ async def perform_user_information_request(
             url=url, data=credentials_json, headers=headers, timeout=10)
         if user_information_response.status_code == 200:
             response = user_information_response.json()
-            print(response)
-            print('ok')
             try:
                 return UserInformation(**response)
             except ValidationError:
                 return None
-    print(f"user information request failed: {url}")
+    error(f"user information request failed: {url}")
     return None
 
 
