@@ -19,10 +19,13 @@ from .settings import (
 from ...auth.utils.credentials import get_domain
 
 from .utils import (
-    decrypt, get_odm_session, get_rabbitmq_management_api, get_redis_client
+    check_namespace_allowed,
+    decrypt,
+    get_odm_session,
+    get_rabbitmq_management_api,
+    get_redis_client
 )
 
-from .models.namespace import Namespace
 from ...auth.depends import CheckScope, get_username
 
 
@@ -34,7 +37,7 @@ user_role = Depends(CheckScope(scope='user'))
     "/credentials",
     summary="Create credentials for a namespace",
     response_model=Union[str, dict],
-    dependencies=[user_role]
+    dependencies=[user_role, Depends(check_namespace_allowed)]
 )
 async def create_credentials(
     namespace: str,
@@ -49,46 +52,41 @@ async def create_credentials(
     return the password to retrieve the credentials.
     Return an error if the namespace does not exist
     """
-    if await Namespace.is_allowed(namespace, database, username):
-        domain = await get_domain(username)
-        info("namespace found")
-        credentials = await ManagementCredentials.get(
+    domain = await get_domain(username)
+    info("namespace found")
+    credentials = await ManagementCredentials.get(
+        database, namespace, domain)
+    if credentials:
+        # delete existing credentials
+        await ManagementCredentials.delete_one(
             database, namespace, domain)
-        if credentials:
-            # delete existing credentials
-            await ManagementCredentials.delete_one(
-                database, namespace, domain)
-        error("credentials not found")
-        password = await ManagementCredentials.new(
-            database,
-            rabbitmq_management_api,
-            redis_client,
-            namespace,
-            domain,
-            username,
-            default_mongodb_host,
-            default_mongodb_port,
-            default_rabbitmq_host,
-            default_rabbitmq_port,
-            default_redis_host,
-            default_redis_port,
-        )
-        if password:
-            return password
-        raise HTTPException(
-            status_code=500,
-            detail="Could not create credentials"
-        )
+    error("credentials not found")
+    password = await ManagementCredentials.new(
+        database,
+        rabbitmq_management_api,
+        redis_client,
+        namespace,
+        domain,
+        username,
+        default_mongodb_host,
+        default_mongodb_port,
+        default_rabbitmq_host,
+        default_rabbitmq_port,
+        default_redis_host,
+        default_redis_port,
+    )
+    if password:
+        return password
     raise HTTPException(
-        status_code=404,
-        detail="Namespace not found or not allowed"
+        status_code=500,
+        detail="Could not create credentials"
     )
 
 
 @ api.get(
     '/credentials',
     response_model=ManagementCredentialsResponse,
-    dependencies=[user_role]
+    dependencies=[user_role, Depends(check_namespace_allowed)]
 )
 async def get_credentials(
     namespace: str,
@@ -104,24 +102,21 @@ async def get_credentials(
     4. the credentials are only valid a limited amount of time
     5. return the credentials
     """
-    if await Namespace.is_allowed(namespace, database, username):
-        domain = await get_domain(username)
-        info("namespace found")
-        credentials: ManagementCredentials = await ManagementCredentials.get(
-            database, namespace, domain)
-        if credentials:
-            info("credentials found")
-            # decrypt the credentials
-            try:
-                credentials_data: str = decrypt(credentials.credentials, key)
-                credentials_data = ManagementCredentialsCollection.parse_raw(
-                    credentials_data)
-                credentials.credentials = credentials_data
-                return credentials
-            except Exception as e:
-                error(e)
-                raise HTTPException(
-                    status_code=500, detail="Could not decrypt credentials")
-        raise HTTPException(status_code=404, detail="Credentials not found")
-    raise HTTPException(
-        status_code=404, detail="Namespace not found or not allowed")
+    domain = await get_domain(username)
+    info("namespace found")
+    credentials: ManagementCredentials = await ManagementCredentials.get(
+        database, namespace, domain)
+    if credentials:
+        info("credentials found")
+        # decrypt the credentials
+        try:
+            credentials_data: str = decrypt(credentials.credentials, key)
+            credentials_data = ManagementCredentialsCollection.parse_raw(
+                credentials_data)
+            credentials.credentials = credentials_data
+            return credentials
+        except Exception as e:
+            error(e)
+            raise HTTPException(
+                status_code=500, detail="Could not decrypt credentials")
+    raise HTTPException(status_code=404, detail="Credentials not found")

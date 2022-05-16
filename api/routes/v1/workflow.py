@@ -10,7 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 from ...auth.depends import CheckScope, get_username
 from .utils import (
-    get_allowed_namespaces, get_odm_session, match, project, lookup,
+    check_namespace_allowed, get_allowed_namespaces, get_odm_session, match, project, lookup,
     sort_stage, skip_stage, limit_stage,
     lookup_logs, default_namespace, lookup_workflow_status
 )
@@ -231,7 +231,10 @@ async def workflows(
     return aggregations[0]
 
 
-@api.get('/workflow_tasks', dependencies=[user_role])
+@api.get(
+    '/workflow_tasks',
+    dependencies=[user_role, Depends(check_namespace_allowed)]
+)
 async def workflow_tasks(
     workflow_id: str,
     namespace: str,
@@ -240,39 +243,34 @@ async def workflow_tasks(
     page: Optional[int] = None,
     page_size: Optional[int] = None,
 ):
-    if Namespace.is_allowed(namespace, database, username):
-        pipeline = [
-            project({'_id': 0}),
-            match({'workflow_id': workflow_id}),
-            {
-                "$facet": {
-                    "tasks": [
-                        stage2
-                        for stage2 in [
-                            skip_stage(page, page_size),
-                            limit_stage(page, page_size)
-                        ]
-                        if stage2 != {}
-                    ],
-                    "total_count": [{"$count": "count"}],
-                }
-            },
-            project({
-                'tasks': '$tasks.task',
-                'total_count': {
-                    '$first': '$total_count.count'
-                }
-            })
-        ]
-        namespace_db = await Namespace.get_namespace_db(
-            database, namespace, username)
-        collection = namespace_db.get_collection("task_workflow_association")
-        log_result = await collection.aggregate(pipeline).to_list(1)
-        return log_result[0]
-    return {
-        'tasks': [],
-        'total_count': 0
-    }
+    pipeline = [
+        project({'_id': 0}),
+        match({'workflow_id': workflow_id}),
+        {
+            "$facet": {
+                "tasks": [
+                    stage2
+                    for stage2 in [
+                        skip_stage(page, page_size),
+                        limit_stage(page, page_size)
+                    ]
+                    if stage2 != {}
+                ],
+                "total_count": [{"$count": "count"}],
+            }
+        },
+        project({
+            'tasks': '$tasks.task',
+            'total_count': {
+                '$first': '$total_count.count'
+            }
+        })
+    ]
+    namespace_db = await Namespace.get_namespace_db(
+        database, namespace, username)
+    collection = namespace_db.get_collection("task_workflow_association")
+    log_result = await collection.aggregate(pipeline).to_list(1)
+    return log_result[0]
 
 
 @api.get('/workflow_status', dependencies=[user_role])

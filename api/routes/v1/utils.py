@@ -167,6 +167,18 @@ async def get_allowed_namespaces(
         status_code=403, detail="Namespace not allowed or not found")
 
 
+async def check_namespace_allowed(
+    namespace: str,
+    database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
+):
+    if not Namespace.is_allowed(namespace, database, username):
+        raise HTTPException(
+            status_code=404,
+            detail="Namespace not found or you don't have access"
+        )
+
+
 async def get_redis_client(request: Request):
     try:
         return request.state.redis_client

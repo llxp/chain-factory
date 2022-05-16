@@ -7,7 +7,9 @@ RUN pip3 install --no-cache-dir -r /config/requirements.txt
 
 RUN mkdir -p /www/
 
-COPY ./ /www/
+COPY ./api/ /www/api
+COPY ./framework/ /www/framework
+COPY ./main_api.py /www/
 #COPY ./framework /www/framework/
 COPY ./api/config.json /docker-entrypoint.d/
 
