@@ -20,18 +20,18 @@ kubectl apply -f ./k3s/redis/statefulset.yml
 # 5. rabbitmq deployment
 kubectl apply -f ./k3s/rabbitmq/namespace.yml
 kubectl config set-context --current --namespace=rabbitmq
-kubectl apply -f ./k3s/rabbitmq/configmap.yml
+kubectl apply -f ./k3s/rabbitmq/rbac.yml
 kubectl apply -f ./k3s/rabbitmq/headless-service.yml
+kubectl apply -f ./k3s/rabbitmq/configmap.yml
 kubectl apply -f ./k3s/rabbitmq/cookie.yml
 kubectl apply -f ./k3s/rabbitmq/admin-account.yml
-kubectl apply -f ./k3s/rabbitmq/rbac.yml
 kubectl apply -f ./k3s/rabbitmq/statefulset.yml
 # 6. loki helm install
 kubectl apply -f ./k3s/elk/namespace.yml
 kubectl config set-context --current --namespace=loki
-helm repo add loki https://grafana.github.io/loki/charts
+helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
-helm install loki loki/loki-stack --namespace=loki -f ./k3s/elk/values_loki_default.yaml
+helm install loki grafana/loki-stack --namespace=loki -f ./k3s/elk/values_loki_default.yaml
 # 7. vault helm install
 kubectl apply -f ./k3s/vault/namespace.yml
 kubectl config set-context --current --namespace=vault
