@@ -6,7 +6,7 @@ sudo -i -u vagrant curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -
 sudo apt install -y nfs-kernel-server nfs-common
 sudo mkdir -p /exports
 cat << EOF >> /etc/exports
-127.0.0.1/8(rw,sync,no_subtree_check,crossmnt,fsid=0)
+/exports 127.0.0.1/8(rw,sync,no_subtree_check,crossmnt,fsid=0)
 /exports/k3s 127.0.0.1/8(rw,sync,no_subtree_check)
 EOF
 
