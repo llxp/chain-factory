@@ -10,6 +10,7 @@ cat << EOF >> /etc/exports
 /exports 127.0.0.1/8(rw,sync,no_subtree_check,crossmnt,fsid=0)
 /exports/k3s 127.0.0.1/8(rw,sync,no_subtree_check)
 EOF
+exportfs -ar
 
 cat <<EOF > /var/lib/rancher/k3s/server/manifests/nfs.yaml
 apiVersion: helm.cattle.io/v1
