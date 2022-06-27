@@ -39,17 +39,21 @@ helm repo add hashicorp https://helm.releases.hashicorp.com
 helm repo update
 ## create certificates for vault server
 ### generate root-ca key
-openssl genrsa 4096 > root-ca.key
+openssl genrsa -out "./k3s/vault/cert/root-ca.key" 4096
 ### generate root-ca certificate signing request
-openssl req -new -key "root-ca.key" -out "root-ca.csr" -sha256 -subj '/CN=Local Test Root CA'
+openssl req -new -key "./k3s/vault/cert/root-ca.key" -out "./k3s/vault/cert/root-ca.csr" -sha256 -subj '/CN=Local Test Root CA'
 ### generate root-ca certificate
-openssl x509 -req -days 3650 -in "root-ca.csr" -signkey "root-ca.key" -sha256 -out "root-ca.crt" -extfile "root-ca.cnf" -extensions root_ca
+openssl x509 -req -days 3650 -in "./k3s/vault/cert/root-ca.csr" -signkey "./k3s/vault/cert/root-ca.key" -sha256 -out "./k3s/vault/cert/root-ca.crt" -extfile "./k3s/vault/cert/root-ca.cnf" -extensions root_ca
 ### generate server key
-openssl genrsa -out "server.key" 4096
+openssl genrsa -out "./k3s/vault/cert/server.key" 4096
 ### generate server certificate signing request
-openssl req -new -key "server.key" -out "server.csr" -sha256 -subj '/CN=vault.svc.cluster.local'
+openssl req -new -key "./k3s/vault/cert/server.key" -out "./k3s/vault/cert/server.csr" -sha256 -subj '/CN=vault.svc.cluster.local'
 ### generate server certificate
-openssl x509 -req -days 750 -in "server.csr" -sha256 -CA "root-ca.crt" -CAkey "root-ca.key" -CAcreateserial -out "server.crt" -extfile "server.cnf" -extensions v3_req
+openssl x509 -req -days 750 -in "./k3s/vault/cert/server.csr" -sha256 -CA "./k3s/vault/cert/root-ca.crt" -CAkey "./k3s/vault/cert/root-ca.key" -CAcreateserial -out "./k3s/vault/cert/server.crt" -extfile "./k3s/vault/cert/server.cnf" -extensions v3_req
+### create root-ca secret
+kubectl create secret generic tls-ca --from-file=./k3s/vault/cert/root-ca.crt --from-file=./k3s/vault/cert/root-ca.key
+### create server secret
+kubectl create secret generic tls-server --from-file=./k3s/vault/cert/server.crt --from-file=./k3s/vault/cert/server.key
 ### install helm chart
 helm install vault hashicorp/vault --namespace=vault -f ./k3s/vault/overide-values.yml
 # 8. rest-api deployment

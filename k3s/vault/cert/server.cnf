@@ -1,0 +1,36 @@
+[ req ]
+default_bits = 2048
+prompt = no
+encrypt_key = yes
+default_md = sha256
+distinguished_name = dn
+req_extensions = v3_req
+
+[ dn ]
+C = NO
+ST = Oslo
+L = Oslo
+O = Our Business
+OU = Our Department
+emailAddress = email@domain.no
+CN = vault.vault.svc
+
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = vault
+DNS.2 = vault.vault
+DNS.3 = vault.vault.svc
+DNS.4 = vault.vault.svc.cluster.local
+DNS.5 = vault-agent-injector-svc
+DNS.6 = vault-agent-injector-svc.vault
+DNS.7 = vault-agent-injector-svc.vault.svc
+DNS.8 = vault-agent-injector-svc.vault.svc.cluster.local
+DNS.9 = vault-0.vault-internal
+DNS.10 = vault-1.vault-internal
+DNS.11 = vault-2.vault-internal
+IP.1  = 127.0.0.1

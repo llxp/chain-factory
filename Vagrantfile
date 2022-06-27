@@ -71,6 +71,7 @@ Vagrant.configure("2") do |config|
     apt-get install -y git
     git clone --recurse-submodules https://github.com/llxp/chain-factory.git /tmp/chain-factory
     /tmp/chain-factory/setup_k3s.sh
+    cd /tmp/chain-factory
     /tmp/chain-factory/install_k8s_resources.sh
   SHELL
 end
