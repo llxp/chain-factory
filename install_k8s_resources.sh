@@ -9,7 +9,7 @@ kubectl apply -f ./k3s/mongodb/mongodb.com_v1_mongodbcommunity_cr.yaml
 # 3. mongo-express helm install
 helm repo add cowboysysop https://cowboysysop.github.io/charts/
 helm repo update
-helm install mongo-express cowboysysop/mongo-express --namespace=mongodb-operator -f ./k3s/mongodb/values_express.yml
+helm install mongo-express cowboysysop/mongo-express --namespace=mongodb-operator -f ./k3s/mongodb/values_express.yaml
 # 4. redis deployment
 kubectl apply -f ./k3s/redis/namespace.yml
 kubectl config set-context --current --namespace=redis

@@ -2,6 +2,7 @@
 # echo $k3s_token > ./k3s/k3s_token
 # curl -sfL https://get.k3s.io | K3S_TOKEN=$k3s_token sh -s - server --cluster-init
 sudo -i -u vagrant curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -
+ln -s /etc/rancher/k3s/k3s.yaml ~/.kube/config
 
 apt install -y nfs-kernel-server nfs-common
 mkdir -p /exports/k3s
