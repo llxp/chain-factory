@@ -1,3 +1,4 @@
+from distutils.log import debug
 from odmantic import AIOEngine, Model, Field, EmbeddedModel
 from datetime import datetime
 from typing import List, Optional
@@ -29,8 +30,11 @@ class IdpDomainConfig(Model):
         database: AIOEngine,
         username: str
     ) -> List['IdpDomainConfig']:
+        print(f"get idp domain config for {username}")
+        debug(f"get idp config for user {username}")
         domain = await get_domain(username)
         if domain:
+            debug(f"domain: {domain}")
             return database.find(IdpDomainConfig, (
                 (IdpDomainConfig.domain == domain) &
                 (IdpDomainConfig.enabled == True)  # noqa: E712

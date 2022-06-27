@@ -1,4 +1,4 @@
-from logging import error, info
+from logging import error, info, debug
 from fastapi import APIRouter, Depends, Request, HTTPException
 from httpx import ConnectError, ConnectTimeout
 from odmantic import AIOEngine
@@ -32,13 +32,15 @@ async def login(
     server_secret: str = Depends(get_server_secret)
 ):
     if credentials.username and credentials.password:
-        idp_config = await IdpDomainConfig.get(
-            database, credentials.username)
+        debug(f"login request: {credentials.username}")
+        idp_configs = await IdpDomainConfig.get(database, credentials.username)
         # check for every host if the credentials are valid
         # and then get the user information
-        if idp_config:
+        if idp_configs:
+            debug(f"idp config found: {len(await idp_configs)}")
             config: IdpDomainConfig = None
-            async for config in idp_config:
+            async for config in idp_configs:
+                debug(f"idp config found: {config.domain}")
                 user_information = await get_user_information(
                     credentials, config)
                 if user_information:
@@ -80,9 +82,13 @@ async def get_user_information(
             if response:
                 return response
         except ConnectError:
+            error(f"user information request failed with connect error: {url}")
             return None
         except ConnectTimeout:
+            error(f"user information request failed with timeout: {url}")
             return None
+    error(f"user information request failed: {url}")
+    return None
 
 
 async def perform_user_information_request(

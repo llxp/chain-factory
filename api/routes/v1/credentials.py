@@ -2,7 +2,7 @@ from logging import error, info
 from odmantic import AIOEngine
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Union
-from aioredis import Redis
+from redis import Redis
 from amqpstorm.management import ManagementApi
 
 from .models.credentials import (
@@ -60,7 +60,8 @@ async def create_credentials(
         # delete existing credentials
         await ManagementCredentials.delete_one(
             database, namespace, domain)
-    error("credentials not found")
+    else:
+        info("credentials not found")
     password = await ManagementCredentials.new(
         database,
         rabbitmq_management_api,

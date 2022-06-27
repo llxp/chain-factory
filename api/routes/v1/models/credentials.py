@@ -1,6 +1,8 @@
-from logging import error, info
+from http.client import HTTPException
+from logging import error, info, warning
 from typing import Union
-from aioredis import Redis
+# from aioredis import Redis
+from redis import Redis
 from cryptography.fernet import Fernet
 from amqpstorm.management import ManagementApi, ApiError
 from traceback import print_exc
@@ -49,10 +51,8 @@ class MongoDBCredentials(EmbeddedModel):
                 pwd=password
             )
         except OperationFailure as e:
-            print_exc()
-            error(e.code)
             if e.code == 51003:
-                error("user already exists")
+                warning("user already exists")
                 # update user
                 await database.client[db_name].command(
                     'updateUser',
@@ -63,6 +63,9 @@ class MongoDBCredentials(EmbeddedModel):
                     ],
                     pwd=password
                 )
+            else:
+                error(e.code)
+                print_exc()
         except Exception as e:
             print_exc()
             error(e)
@@ -104,29 +107,30 @@ class RabbitMQCredentials(EmbeddedModel):
         password = Fernet.generate_key().decode('utf-8')
         username = email_snake_case + '_' + namespace
         vhost_name = namespace + '_' + domain_snake_case
-        result = client.virtual_host.create(vhost_name)
         try:
-            result = client.user.create(
+            result_create_vhost = client.virtual_host.create(vhost_name)
+            info(result_create_vhost)
+            result_create_user = client.user.create(
                 username=username,
                 password=password,
                 tags='management'
             )
-        except ApiError:
-            print_exc()
-        except Exception:
-            print_exc()
-        try:
-            result = client.user.set_permission(
+            info(result_create_user)
+            result_set_permission = client.user.set_permission(
                 username=username,
                 virtual_host=vhost_name,
                 configure_regex='.*',
                 write_regex='.*',
                 read_regex='.*'
             )
+            info(result_set_permission)
+        except ApiError:
+            print_exc()
         except Exception as e:
+            print_exc()
             error(e)
-            pass
-        info(result)
+            return None
+
         return cls(
             virtual_host=vhost_name,
             username=username,
@@ -165,13 +169,14 @@ class RedisCredentials(EmbeddedModel):
         username = email_snake_case + '_' + namespace
         db_name = namespace + '_' + domain_snake_case
         # set acl for the namespace
-        await client.acl_setuser(
+        if not client.acl_setuser(
             username=username,
             enabled=True,
             keys=[db_name + '_*'],
             passwords='+'+password,
             reset_passwords=False,
             reset=True,
+            channels=['*'],
             commands=[
                 '+set',
                 '+get',
@@ -179,7 +184,8 @@ class RedisCredentials(EmbeddedModel):
                 '+unsubscribe',
                 '+publish',
             ],
-        )
+        ):
+            raise HTTPException("failed to set redis acl")
         return cls(
             key_prefix=db_name,
             username=username,

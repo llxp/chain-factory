@@ -2,6 +2,9 @@ from logging import info, Filter
 from os import getenv, sep as os_sep
 from os.path import abspath, relpath
 from sys import path as sys_path
+# from api.main import app
+
+# __all__ = ["app"]
 
 
 class PackagePathFilter(Filter):
@@ -28,12 +31,12 @@ LOGGING_CONFIG: dict = {
     },
     "formatters": {
         "default": {
-            "()": "uvicorn.logging.DefaultFormatter",
+            "()": "uvicorn._logging.DefaultFormatter",
             "fmt": "%(levelprefix)s [%(relativepath)s:%(lineno)d] %(message)s",
             "use_colors": True,
         },
         "access": {
-            "()": "uvicorn.logging.AccessFormatter",
+            "()": "uvicorn._logging.AccessFormatter",
             "fmt": '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',  # noqa: E501
         },
         'verbose': {
@@ -50,7 +53,7 @@ LOGGING_CONFIG: dict = {
         "access": {
             "formatter": "access",
             "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
+            "stream": "ext://sys.stderr",
         },
         'sys-logger7': {
             'class': 'logging.handlers.SysLogHandler',
@@ -81,12 +84,13 @@ if __name__ == "__main__":
     import uvicorn
     host = getenv('HOST', '0.0.0.0')
     port = getenv('PORT', '8005')
+    log_level = getenv("LOG_LEVEL", "debug")
     info(f"Starting server on {host}:{port}")
     uvicorn.run(
         "api.main:app",
         host=host,
         port=int(port),
-        log_level="debug",
-        reload=True,
+        log_level=log_level,
+        # reload=True,
         log_config=LOGGING_CONFIG,
     )

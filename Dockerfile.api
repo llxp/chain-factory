@@ -1,7 +1,11 @@
-FROM nginx/unit:1.26.1-python3.10
+# FROM nginx/unit:1.26.1-python3.10
+FROM python:3.9-alpine
 
-RUN apt update && apt install -y python3-pip curl && \
-    rm -rf /var/lib/apt/lists/*
+# RUN apt update && apt install -y python3-pip curl && \
+#     rm -rf /var/lib/apt/lists/*
+
+RUN apk add --update --no-cache --virtual .tmp-build-deps libffi-dev gcc libc-dev linux-headers
+
 COPY ./requirements.txt /config/
 RUN pip3 install --no-cache-dir -r /config/requirements.txt
 
@@ -11,8 +15,10 @@ COPY ./api/ /www/api
 COPY ./framework/ /www/framework
 COPY ./main_api.py /www/
 #COPY ./framework /www/framework/
-COPY ./api/config.json /docker-entrypoint.d/
+# COPY ./api/config.json /docker-entrypoint.d/
 
+ENV HOST="0.0.0.0"
+ENV PORT="8000"
 # Server secret used for encryption
 # generate using openssl rand -hex 32
 ENV SERVER_SECRET=""
@@ -41,5 +47,10 @@ ENV DEFAULT_CORS_ORIGINS=""
 # Only used for explicit override
 ENV RABBITMQ_MANAGEMENT_URL=""
 
-
 EXPOSE 8000
+
+WORKDIR /www
+
+CMD ["python3", "main_api.py"]
+
+# CMD ["unitd-debug","--no-daemon","--control","unix:/var/run/control.unit.sock"]

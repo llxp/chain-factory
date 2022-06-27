@@ -2,4 +2,4 @@ venv/
 .vscode/
 .DS_Store
 .old/
-worker/
+./worker/

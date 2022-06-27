@@ -172,3 +172,5 @@ db.workflow.aggregate(
     }
   ]
 )
+
+db.workflow_status.distinct('status')

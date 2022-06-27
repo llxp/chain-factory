@@ -137,8 +137,19 @@ async def node_active(
 
 
 async def get_rabbitmq_client(vhost: str, namespace: str, rabbitmq_url: str):
+    if len(rabbitmq_url) > 0 and len(vhost) > 0:
+        if vhost.startswith("/"):
+            vhost = vhost[1:]
+        if rabbitmq_url.endswith("/"):
+            url = rabbitmq_url + vhost
+        else:
+            url = rabbitmq_url + "/" + vhost
+    else:
+        url = rabbitmq_url
+    debug("Getting rabbitmq client for vhost: " + vhost)
+    debug(f"final rabbitmq url: {url}")
     client = RabbitMQ(
-        url=rabbitmq_url + vhost,
+        url=url,
         queue_name=namespace + "_task_queue",
         rmq_type="publisher",
     )
@@ -172,7 +183,7 @@ async def check_namespace_allowed(
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
 ):
-    if not Namespace.is_allowed(namespace, database, username):
+    if not await Namespace.is_allowed(namespace, database, username):
         raise HTTPException(
             status_code=404,
             detail="Namespace not found or you don't have access"
