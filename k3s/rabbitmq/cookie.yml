@@ -1,6 +1,7 @@
 apiVersion: v1
 data:
-  cookie: cf2bc633d67ba3b0ebfba4101910e2733400fada5b1cf0e66c4bd933120b13e0
+#   cookie: cf2bc633d67ba3b0ebfba4101910e2733400fada5b1cf0e66c4bd933120b13e0
+  cookie: Y2YyYmM2MzNkNjdiYTNiMGViZmJhNDEwMTkxMGUyNzMzNDAwZmFkYTViMWNmMGU2NmM0YmQ5MzMxMjBiMTNlMA==
 kind: Secret
 metadata:
   name: erlang-cookie
