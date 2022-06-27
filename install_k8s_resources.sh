@@ -55,7 +55,7 @@ kubectl create secret generic tls-ca --from-file=./k3s/vault/cert/root-ca.crt --
 ### create server secret
 kubectl create secret generic tls-server --from-file=./k3s/vault/cert/server.crt --from-file=./k3s/vault/cert/server.key
 ### install helm chart
-helm install vault hashicorp/vault --namespace=vault -f ./k3s/vault/overide-values.yml
+helm install vault hashicorp/vault --namespace=vault -f ./k3s/vault/override-values.yml
 # 8. rest-api deployment
 kubectl apply -f ./k3s/rest-api/namespace.yml
 kubectl config set-context --current --namespace=rest-api
