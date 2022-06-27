@@ -3,8 +3,9 @@
 # curl -sfL https://get.k3s.io | K3S_TOKEN=$k3s_token sh -s - server --cluster-init
 sudo -i -u vagrant curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -
 
-sudo apt install -y nfs-kernel-server nfs-common
-sudo mkdir -p /exports
+apt install -y nfs-kernel-server nfs-common
+mkdir -p /exports/k3s
+chown nobody:nogroup /exports/k3s
 cat << EOF >> /etc/exports
 /exports 127.0.0.1/8(rw,sync,no_subtree_check,crossmnt,fsid=0)
 /exports/k3s 127.0.0.1/8(rw,sync,no_subtree_check)

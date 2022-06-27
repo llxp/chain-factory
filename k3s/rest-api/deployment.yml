@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rest-api-deployment
+  namespace: rest-api
+  labels:
+    app: rest-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rest-api
+  template:
+    metadata:
+      labels:
+        app: rest-api
+    spec:
+      containers:
+      - name: rest-api
+        image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-api:1.0.54
+        ports:
+        - containerPort: 8000
+        env:
+        - name: SERVER_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: rest-api-secret
+              key: server-secret
+              optional: false
+        - name: MONGODB_URL
+          valueFrom:
+            secretKeyRef:
+              name: rest-api-secret
+              key: mongodb-url
+              optional: false
+        - name: MONGODB_HOST
+          value: "example-mongodb-0.example-mongodb-svc.mongodb-operator.svc.cluster.local"
+        - name: MONGODB_PORT
+          value: "27017"
+        - name: MONGODB_DATABASE
+          value: db
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: rest-api-secret
+              key: redis-url
+              optional: false
+        - name: REDIS_HOST
+          value: "redis-0.redis-headless.redis.svc.cluster.local"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: IDP_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: rest-api-secret
+              key: idp-username
+              optional: false
+        - name: IDP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rest-api-secret
+              key: idp-password
+              optional: false
+        - name: RABBITMQ_MANAGEMENT_HOST
+          value: "rabbitmq-0.rabbitmq-headless.rabbitmq.svc.cluster.local"
+        - name: RABBITMQ_MANAGEMENT_PORT
+          value: "15672"
+        - name: RABBITMQ_MANAGEMENT_USER
+          valueFrom:
+            secretKeyRef:
+              name: rest-api-secret
+              key: rabbitmq-management-user
+              optional: false
+        - name: RABBITMQ_MANAGEMENT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rest-api-secret
+              key: rabbitmq-management-pass
+              optional: false
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: rest-api-secret
+              key: rabbitmq-url
+              optional: false
+        - name: RABBITMQ_HOST
+          value: "rabbitmq-0.rabbitmq-headless.rabbitmq.svc.cluster.local"
+        - name: RABBITMQ_PORT
+          value: "5672"
+        # - name: SYSLOG_ADDRESS
+        #  value: "loki.elk.svc.cluster.local"
+        #- name: SYSLOG_PORT
+        #  value: "514"
+        #- name: SYSLOG_LEVEL
+        #  value: "DEBUG"
+        #- name: SYSLOG_LOCAL
+        #  value: "false"
+        #- name: SYSLOG_ENABLED
+        #  value: "false"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+      imagePullSecrets:
+      - name: llxp-k3s-vbox-pull-secret

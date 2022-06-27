@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-backup
+  namespace: mongodb
+spec:
+  template:
+    spec:
+      containers:
+      - name: backup
+        image: mongodb
+        command: ["/bin/sh", "-c", "mongodump --uri=${MONGODB_URL} --out /backup/dump.bson"]
+        env:
+        - name: MONGODB_URL
+          secretKeyRef:
+            name: mongodb-secret
+            key: mongodb-url
+            optional: false
+        volumeMounts:
+          - name: mongodb-backup-volume
+            mountPath: /backup
+      restartPolicy: Never
+      volumes:
+        - name: mongodb-backup-volume
+          persistentVolumeClaim:
+            claimName: mongodb-backup-pvc
+  backoffLimit: 4

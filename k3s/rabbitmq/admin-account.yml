@@ -1,0 +1,9 @@
+apiVersion: v1
+data:
+  username: administrator
+  password: ab4e2bda8ff5f17b
+kind: Secret
+metadata:
+  name: rabbitmq-admin
+  namespace: rabbitmq
+type: Generic
