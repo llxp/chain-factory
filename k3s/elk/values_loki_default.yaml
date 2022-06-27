@@ -41,7 +41,7 @@ grafana:
 
 prometheus:
   enabled: true
-  isDefault: true
+  isDefault: false
   
   alertmanager:
     persistentVolume:
@@ -70,7 +70,7 @@ filebeat:
         hosts: ["logstash-loki:5044"]
 
 logstash:
-  enabled: true
+  enabled: false
   fullnameOverride: "logstash-loki"
   image: grafana/logstash-output-loki
   imageTag: 1.0.1
