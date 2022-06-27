@@ -60,7 +60,7 @@ helm install vault hashicorp/vault --namespace=vault -f ./k3s/vault/overide-valu
 kubectl apply -f ./k3s/rest-api/namespace.yml
 kubectl config set-context --current --namespace=rest-api
 kubectl apply -f ./k3s/rest-api/secrets.yml
-kubectl apply -f ./k3s/headless-service.yml
+kubectl apply -f ./k3s/rest-api/headless-service.yml
 kubectl apply -f ./k3s/rest-api/deployment.yml
 # 9. worker deployment
 kubectl apply -f ./k3s/worker/namespace.yml
