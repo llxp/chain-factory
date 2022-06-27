@@ -1,6 +1,7 @@
 [submodule "framework"]
 	path = framework
 	url = https://github.com/llxp/chain-factory-framework.git
+	branch = master
 [submodule "backend-api"]
 	path = backend-api
 	url = https://github.com/llxp/chain-factory-backend-api.git
