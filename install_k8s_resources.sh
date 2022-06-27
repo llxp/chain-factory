@@ -31,7 +31,7 @@ kubectl apply -f ./k3s/elk/namespace.yml
 kubectl config set-context --current --namespace=loki
 helm repo add loki https://grafana.github.io/loki/charts
 helm repo update
-helm install loki loki/loki-stack --namespace=loki -f ./k3s/elk/values_loki_default.yml
+helm install loki loki/loki-stack --namespace=loki -f ./k3s/elk/values_loki_default.yaml
 # 7. vault helm install
 kubectl apply -f ./k3s/vault/namespace.yml
 kubectl config set-context --current --namespace=vault
