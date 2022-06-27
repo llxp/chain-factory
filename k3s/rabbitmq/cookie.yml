@@ -3,6 +3,6 @@ data:
   cookie: cf2bc633d67ba3b0ebfba4101910e2733400fada5b1cf0e66c4bd933120b13e0
 kind: Secret
 metadata:
-  name: rabbitmq-admin
+  name: erlang-cookie
   namespace: rabbitmq
 type: Generic
