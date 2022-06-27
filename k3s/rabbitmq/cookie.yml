@@ -5,4 +5,4 @@ kind: Secret
 metadata:
   name: erlang-cookie
   namespace: rabbitmq
-type: Generic
+type: Opaque
