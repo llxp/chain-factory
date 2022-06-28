@@ -34,7 +34,7 @@ kind: Policy
 rules:
 - level: Metadata
 EOF
-cp scripts/hardening/pod-securits-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
+cp scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
 systemctl enable --now k3s.service
 mkdir -p ~/.kube
 chmod 710 ~/.kube
