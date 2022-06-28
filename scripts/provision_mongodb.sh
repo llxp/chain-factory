@@ -3,6 +3,7 @@
 apt install -y build-essential libkrb5-dev
 wget https://go.dev/dl/go1.18.3.linux-amd64.tar.gz
 tar -C /usr/local -xzf go1.18.3.linux-amd64.tar.gz
+rm go1.18.3.linux-amd64.tar.gz
 export PATH=$PATH:/usr/local/go/bin
 
 git clone https://github.com/mongodb/mongo-tools
