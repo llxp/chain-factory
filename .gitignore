@@ -3,3 +3,10 @@ venv/
 .DS_Store
 .old/
 ./worker/
+.git_old/
+.env
+.vagrant/
+*.pem
+*.key
+*.crt
+*.csr

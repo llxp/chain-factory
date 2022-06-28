@@ -51,6 +51,12 @@ EXPOSE 8000
 
 WORKDIR /www
 
+RUN adduser -D -H appuser
+
+RUN chown -R appuser:appuser /www/api/auth/utils/pki && chmod -R 750 /www/api/auth/utils/pki
+
+USER appuser
+
 CMD ["python3", "main_api.py"]
 
 # CMD ["unitd-debug","--no-daemon","--control","unix:/var/run/control.unit.sock"]

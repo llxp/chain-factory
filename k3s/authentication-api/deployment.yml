@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authentication-api-deployment
+  namespace: authentication-api
+  labels:
+    app: authentication-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authentication-api
+  template:
+    metadata:
+      labels:
+        app: authentication-api
+    spec:
+      containers:
+      - name: authentication-api
+        image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-authentication-api:1.0.6
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            cpu: 500m
+            memory: 100Mi
+          limits:
+            cpu: 500m
+            memory: 100Mi
+        volumeMounts:
+          - name: config-file
+            mountPath: /config.yaml
+            subPath: config.yaml
+            readOnly: true
+          - name: tls-ca
+            mountPath: /ca.pem
+            subPath: ca.pem
+            readOnly: true
+          - name: tls-ca
+            mountPath: /ca-key.pem
+            subPath: ca-key.pem
+            readOnly: true
+          - name: tls-cert
+            mountPath: /cert.pem
+            subPath: cert.pem
+            readOnly: true
+          - name: tls-cert
+            mountPath: /cert-key.pem
+            subPath: cert-key.pem
+            readOnly: true
+      volumes:
+        - name: config-file
+          configMap:
+            name: authentication-api-config
+        - name: tls-ca
+          secret:
+            secretName: tls-ca
+        - name: tls-cert
+          secret:
+            secretName: tls-cert

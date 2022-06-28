@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from typing import List
 from jose.jwe import encrypt
 from pydantic import ValidationError
+from ssl import SSLCertVerificationError
 
 from .models.idp_domain_config import IdpDomainConfig
 from .models.refresh_token import RefreshToken
@@ -17,7 +18,7 @@ from .models.user_information import UserInformation
 from .models.token import TokenResponse
 from .models.credentials_token import CredentialsToken
 from .utils.credentials import get_domain
-from .utils.https import get_https_certificates
+from .utils.https import get_https_certificates, get_ca_certificates
 from .utils.request import get_server_secret, get_odm_session
 
 
@@ -75,7 +76,8 @@ async def get_user_information(
     headers = {'content-type': 'application/json'}
     url = idp_config.endpoints.user_information_endpoint
     client_certificates = await get_https_certificates(url, idp_config)
-    async with AsyncClient(cert=client_certificates) as client:
+    ca_certificates = await get_ca_certificates(url)
+    async with AsyncClient(cert=client_certificates, verify=False) as client:
         try:
             response = await perform_user_information_request(
                 credentials, headers, client, url)
@@ -86,6 +88,9 @@ async def get_user_information(
             return None
         except ConnectTimeout:
             error(f"user information request failed with timeout: {url}")
+            return None
+        except SSLCertVerificationError as e:
+            error(f"user information request failed with ssl error: {url}, error: {e}")
             return None
     error(f"user information request failed: {url}")
     return None

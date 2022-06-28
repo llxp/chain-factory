@@ -36,6 +36,14 @@ async def get_client_certificates(
     return cert_path, key_path
 
 
+async def get_ca_server_certificates():
+    current_path = path.dirname(path.realpath(__file__))
+    pki_path = path.join(current_path, 'pki')
+    ca_path = path.join(pki_path, 'ca.pem')
+    if await file_exists(ca_path):
+        return ca_path
+    return None
+
 def is_https(url: str):
     parsed_url = parse.urlparse(url)
     return parsed_url.scheme == 'https' or not parsed_url.scheme == 'http'
@@ -46,3 +54,8 @@ async def get_https_certificates(url: str, config: IdpDomainConfig):
         return await get_client_certificates(
             config.domain, config.client_cert_config)
     return None
+
+async def get_ca_certificates(url: str):
+    if url and is_https(url):
+        return await get_ca_server_certificates()
+    return False

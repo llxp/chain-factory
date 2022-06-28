@@ -1,0 +1,14 @@
+listPods=$(kubectl get pods --all-namespaces | awk 'NR>1{print $1}')
+check_pods () {
+  echo "Checking pods for $1"
+  while kubectl get pods --all-namespaces -l app=$1 -o jsonpath='{.items}' | jq -e 'select(type == "array" and length == 0)' >/dev/null; do
+    sleep 5
+    echo "No pods found for $1"
+  done
+  echo "Pods found for $1"
+  while ! kubectl get pods --all-namespaces -l app=$1 -o jsonpath='{.items[*].status.containerStatuses[*].ready}' | grep -q false; do
+    sleep 5
+    echo "Pods for $1 are ready"
+  done
+}
+check_pods redis

@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: rest-api
-        image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-api:1.0.54
+        image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-api:1.0.57
         ports:
         - containerPort: 8000
         env:
