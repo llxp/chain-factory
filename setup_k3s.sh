@@ -10,17 +10,31 @@ kernel.panic_on_oops=1
 kernel.keys.root_maxbytes=25000000
 EOF
 
-export INSTALL_K3S_EXEC="server --protect-kernel-defaults --kube-apiserver-arg='audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log' --kube-apiserver-arg='audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml'"
+export INSTALL_K3S_EXEC="server \
+  --protect-kernel-defaults=true \
+	--kube-apiserver-arg=audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log \
+	--kube-apiserver-arg=audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml \
+  --kube-apiserver-arg=audit-log-maxage=30 \
+  --kube-apiserver-arg=audit-log-maxbackup=10 \
+  --kube-apiserver-arg=audit-log-maxsize=100 \
+  --kube-apiserver-arg=request-timeout=300s \
+  --kube-apiserver-arg=service-account-lookup=true \
+  --kube-apiserver-arg=enable-admission-plugins=NodeRestriction,PodSecurityPolicy,NamespaceLifecycle,ServiceAccount \
+  --kube-controller-manager-arg=terminated-pod-gc-threshold=10 \
+  --kube-controller-manager-arg=use-service-account-credentials=true \
+  --kubelet-arg=streaming-connection-idle-timeout=5m \
+  --kubelet-arg=make-iptables-util-chains=true"
 export K3S_KUBECONFIG_MODE="600"
 export INSTALL_K3S_SKIP_START="true"
 curl -sfL https://get.k3s.io | sh -
-sudo mkdir -p -m 700 /var/lib/rancher/k3s/server/logs
+mkdir -p -m 700 /var/lib/rancher/k3s/server/logs
 cat <<EOF > /var/lib/rancher/k3s/server/audit.yaml
 apiVersion: audit.k8s.io/v1
 kind: Policy
 rules:
 - level: Metadata
 EOF
+cp scripts/hardening/pod-securits-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
 systemctl enable --now k3s.service
 mkdir -p ~/.kube
 chmod 710 ~/.kube
