@@ -1,7 +1,7 @@
 # k3s_token=$(openssl rand -hex 16)
 # echo $k3s_token > ./k3s/k3s_token
 # curl -sfL https://get.k3s.io | K3S_TOKEN=$k3s_token sh -s - server --cluster-init
-sudo -i -u vagrant curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -
+sudo -i -u vagrant curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="600" sh -
 mkdir -p ~/.kube
 chmod 710 ~/.kube
 ln -s /etc/rancher/k3s/k3s.yaml ~/.kube/config
