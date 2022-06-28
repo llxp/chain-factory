@@ -1,6 +1,6 @@
 #! /bin/sh
 
-trap "kill 0" EXIT
+# trap "kill 0" EXIT
 apt install -y build-essential libkrb5-dev
 wget https://go.dev/dl/go1.18.3.linux-amd64.tar.gz
 tar -C /usr/local -xzf go1.18.3.linux-amd64.tar.gz
@@ -15,4 +15,3 @@ cd ..
 kubectl port-forward svc/example-mongodb-svc 27017:27017 --namespace=mongodb-operator &
 ./mongo-tools/bin/mongorestore -u my-admin -p Start123 -h 127.0.0.1:27017 --db db --authenticationDatabase admin ./mongodb/db/
 echo "Mongodb restored"
-exit 0

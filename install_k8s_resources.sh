@@ -1,3 +1,4 @@
+trap "kill 0" EXIT
 # 1. mongodb operator
 kubectl apply -f ./k3s/mongodb/namespace.yml
 kubectl config set-context --current --namespace=mongodb-operator
