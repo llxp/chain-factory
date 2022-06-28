@@ -31,6 +31,19 @@ spec:
       scramCredentialsSecretName: my-scram2
   additionalMongodConfig:
     storage.wiredTiger.engineConfig.journalCompressor: zlib
+  statefulSet:
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: mongod-posthook
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1001
+            - name: mongodb-agent-readinessprobe
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1001
 
 # the user credentials will be generated from this secret
 # once the credentials are generated, this secret is no longer required

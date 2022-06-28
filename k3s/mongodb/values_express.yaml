@@ -53,13 +53,13 @@ podSecurityContext: {}
 # Priority class name
 # priorityClassName : high-priority
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
 
 livenessProbe:
   # Enable liveness probe
@@ -178,7 +178,7 @@ extraEnvVarsSecret:
 # MongoDB host name or IP address
 # mongodb://my-user:Start123@example-mongodb-0.example-mongodb-svc.mongodb-operator.svc.cluster.local:27017,example-mongodb-1.example-mongodb-svc.mongodb-operator.svc.cluster.local:27017,example-mongodb-2.example-mongodb-svc.mongodb-operator.svc.cluster.local:27017/admin?ssl=false
 # mongodb+srv://my-user:Start123@example-mongodb-svc.mongodb-operator.svc.cluster.local/admin?ssl=false
-mongodbServer: example-mongodb-0.example-mongodb-svc.mongodb-operator.svc.cluster.local:27017
+mongodbServer: example-mongodb-0.example-mongodb-svc.mongodb-operator.svc.cluster.local
 
 # MongoDB port
 mongodbPort: 27017

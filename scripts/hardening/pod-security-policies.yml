@@ -212,7 +212,7 @@ kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
   name: intra-namespace
-  namespace: kube-public
+  namespace: mongodb-operator
 spec:
   podSelector: {}
   ingress:
@@ -225,7 +225,7 @@ kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
   name: intra-namespace
-  namespace: kube-public
+  namespace: authentication-api
 spec:
   podSelector: {}
   ingress:
@@ -238,7 +238,7 @@ kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
   name: intra-namespace
-  namespace: kube-public
+  namespace: rest-api
 spec:
   podSelector: {}
   ingress:
@@ -251,7 +251,7 @@ kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
   name: intra-namespace
-  namespace: kube-public
+  namespace: vault
 spec:
   podSelector: {}
   ingress:
@@ -264,7 +264,7 @@ kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
   name: intra-namespace
-  namespace: kube-public
+  namespace: worker
 spec:
   podSelector: {}
   ingress:
@@ -272,3 +272,184 @@ spec:
       - namespaceSelector:
           matchLabels:
             name: worker
+---
+# allow pods to access the dns service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-network-dns-policy
+  namespace: kube-system
+spec:
+  ingress:
+  - ports:
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP
+  podSelector:
+    matchLabels:
+      k8s-app: kube-dns
+  policyTypes:
+  - Ingress
+---
+# allow metrics server traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-metrics-server
+  namespace: kube-system
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: metrics-server
+  ingress:
+  - {}
+  policyTypes:
+  - Ingress
+---
+# allow traefik traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-svclbtraefik-ingress
+  namespace: kube-system
+spec:
+  podSelector: 
+    matchLabels:
+      app: svclb-traefik
+  ingress:
+  - {}
+  policyTypes:
+  - Ingress
+---
+# allow traefik v2 traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-traefik-v121-ingress
+  namespace: kube-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  ingress:
+  - {}
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mongodb-network-policy
+  namespace: mongodb-operator
+spec:
+  ingress:
+  - ports:
+    - port: 27017
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: example-mongodb-svc
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-network-dns-policy
+  namespace: redis
+spec:
+  ingress:
+  - ports:
+    - port: 6379
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rabbitmq-network-policy
+  namespace: rabbitmq
+spec:
+  ingress:
+  - ports:
+    - port: 5672
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: rabbitmq
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentication-api-network-policy
+  namespace: authentication-api
+spec:
+  ingress:
+  - ports:
+    - port: 8000
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: authentication-api
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ldap-network-policy
+  namespace: ldap
+spec:
+  ingress:
+  - ports:
+    - port: 389
+      protocol: TCP
+    - port: 389
+      protocol: UDP
+    - port: 636
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: ldap
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rest-api-network-policy
+  namespace: rest-api
+spec:
+  ingress:
+  - ports:
+    - port: 8000
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: rest-api
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault-network-policy
+  namespace: vault
+spec:
+  ingress:
+  - ports:
+    - port: 8200
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: vault
+  policyTypes:
+  - Ingress
+---
