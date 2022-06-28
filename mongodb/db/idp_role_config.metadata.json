@@ -1,1 +1,1 @@
-{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_","ns":"db.idp_role_config"}],"uuid":"790a97ea67d648b9847ed503aa1bf206","collectionName":"idp_role_config","type":"collection"}
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"5489292309e0454abecf2ac3b0402c92","collectionName":"idp_role_config","type":"collection"}
