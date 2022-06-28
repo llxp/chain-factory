@@ -14,3 +14,4 @@ cd ..
 
 kubectl port-forward svc/example-mongodb-svc 27017:27017 --namespace=mongodb-operator &
 ./mongo-tools/bin/mongorestore -u my-admin -p Start123 -h 127.0.0.1:27017 --db db --authenticationDatabase admin ./mongodb/db/
+echo "Mongodb restored"
