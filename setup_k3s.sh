@@ -1,9 +1,27 @@
 # k3s_token=$(openssl rand -hex 16)
 # echo $k3s_token > ./k3s/k3s_token
 # curl -sfL https://get.k3s.io | K3S_TOKEN=$k3s_token sh -s - server --cluster-init
-export INSTALL_K3S_EXEC="server --protect-kernel-defaults"
+
+cat <<EOF > /etc/sysctl.d/90-kubelet.conf
+vm.panic_on_oom=0
+vm.overcommit_memory=1
+kernel.panic=10
+kernel.panic_on_oops=1
+kernel.keys.root_maxbytes=25000000
+EOF
+
+export INSTALL_K3S_EXEC="server --protect-kernel-defaults --kube-apiserver-arg='audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log' --kube-apiserver-arg='audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml'"
 export K3S_KUBECONFIG_MODE="600"
-sudo -i -u vagrant curl -sfL https://get.k3s.io | sh -
+export INSTALL_K3S_SKIP_START="true"
+curl -sfL https://get.k3s.io | sh -
+sudo mkdir -p -m 700 /var/lib/rancher/k3s/server/logs
+cat <<EOF > /var/lib/rancher/k3s/server/audit.yaml
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+- level: Metadata
+EOF
+systemctl enable --now k3s.service
 mkdir -p ~/.kube
 chmod 710 ~/.kube
 ln -s /etc/rancher/k3s/k3s.yaml ~/.kube/config
