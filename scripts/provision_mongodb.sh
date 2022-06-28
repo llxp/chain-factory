@@ -1,5 +1,6 @@
 #! /bin/sh
 
+trap "kill 0" EXIT
 apt install -y build-essential libkrb5-dev
 wget https://go.dev/dl/go1.18.3.linux-amd64.tar.gz
 tar -C /usr/local -xzf go1.18.3.linux-amd64.tar.gz
