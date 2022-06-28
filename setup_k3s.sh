@@ -9,6 +9,7 @@ kernel.panic=10
 kernel.panic_on_oops=1
 kernel.keys.root_maxbytes=25000000
 EOF
+sysctl --system
 
 export INSTALL_K3S_EXEC="server \
   --protect-kernel-defaults=true \
@@ -34,8 +35,8 @@ kind: Policy
 rules:
 - level: Metadata
 EOF
-cp scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
 systemctl enable --now k3s.service
+cp scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
 mkdir -p ~/.kube
 chmod 710 ~/.kube
 ln -s /etc/rancher/k3s/k3s.yaml ~/.kube/config
