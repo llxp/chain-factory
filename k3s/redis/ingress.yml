@@ -8,7 +8,8 @@ metadata:
 
 spec:
   rules:
-    - http:
+    - host: redis.localhost
+      http:
         paths:
           - path: /
             pathType: Prefix
