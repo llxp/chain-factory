@@ -401,6 +401,8 @@ spec:
   - ports:
     - port: 5672
       protocol: TCP
+    - port: 15672
+      protocol: TCP
   podSelector:
     matchLabels:
       app: rabbitmq
