@@ -36,7 +36,8 @@ rules:
 - level: Metadata
 EOF
 systemctl enable --now k3s.service
-cp scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cp $SCRIPT_DIR/scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
 mkdir -p ~/.kube
 chmod 710 ~/.kube
 ln -s /etc/rancher/k3s/k3s.yaml ~/.kube/config

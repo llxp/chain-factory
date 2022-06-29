@@ -43,12 +43,14 @@ spec:
         - sh
         - -c
         - >-
-          apt update && apt install -y acl && rm -rf /var/lib/apt/lists/* &&
           dd if=/dev/zero of=/mnt/ext4fs.img bs=1G count=0 seek=10 &&
           mkfs.ext4 /mnt/ext4fs.img
         volumeMounts:
           - name: samba-data
             mountPath: /mnt/
+        securityContext:
+          runAsUser: 0
+          readOnlyRootFilesystem: false
       containers:
       - name: samba-dc
         image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-dc:1.0.0
@@ -63,6 +65,7 @@ spec:
             chmod +x pre-stop.sh &&
             /init.sh setup
         securityContext:
+          runAsUser: 0
           privileged: true
         env:
           - name: DOMAIN
@@ -107,9 +110,9 @@ spec:
             cpu: 100m
             memory: 1Gi
         volumeMounts:
-          - name: localtime
-            mountPath: /etc/localtime
-            readOnly: true
+          # - name: localtime
+          #   mountPath: /etc/localtime
+          #   readOnly: true
           - name: samba-data
             mountPath: /var/lib/samba
             readOnly: false
@@ -117,9 +120,9 @@ spec:
             mountPath: /etc/samba/external
             readOnly: false
       volumes:
-        - name: localtime
-          hostPath:
-            path: /etc/localtime
+        # - name: localtime
+        #   hostPath:
+        #     path: /etc/localtime
         - name: samba-data
           persistentVolumeClaim:
             claimName: samba-data

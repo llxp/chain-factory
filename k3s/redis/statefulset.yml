@@ -40,6 +40,11 @@ spec:
               name: redis-secret
               key: master-pass
               optional: false
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
         volumeMounts:
         - name: redis-config-rw
           mountPath: /etc/redis/
@@ -90,6 +95,11 @@ spec:
           mountPath: /data
         - name: redis-config-rw
           mountPath: /etc/redis/
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
       - name: redis-commander
         image: ghcr.io/joeferner/redis-commander
         env:
