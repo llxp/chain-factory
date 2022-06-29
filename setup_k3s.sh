@@ -38,6 +38,7 @@ EOF
 systemctl enable k3s.service
 systemctl start k3s.service
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+echo "SCRIPT_DIR: $SCRIPT_DIR"
 cp $SCRIPT_DIR/scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
 mkdir -p ~/.kube
 chmod 710 ~/.kube
