@@ -35,7 +35,8 @@ kind: Policy
 rules:
 - level: Metadata
 EOF
-systemctl enable --now k3s.service
+systemctl enable k3s.service
+systemctl start k3s.service
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cp $SCRIPT_DIR/scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
 mkdir -p ~/.kube
