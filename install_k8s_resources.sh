@@ -11,6 +11,7 @@ kubectl apply -f ./k3s/mongodb/mongodb.com_v1_mongodbcommunity_cr.yaml
 helm repo add cowboysysop https://cowboysysop.github.io/charts/
 helm repo update
 helm install mongo-express cowboysysop/mongo-express --namespace=mongodb-operator -f ./k3s/mongodb/values_express.yaml
+kubectl apply -f ./k3s/mongodb/ingress.yml
 while [[ $(kubectl get pods --all-namespaces -l app=example-mongodb-svc -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
 while [[ $(kubectl get pods --all-namespaces -l app.kubernetes.io/name=mongo-express -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
 ./scripts/provision_mongodb.sh
@@ -32,6 +33,7 @@ kubectl apply -f ./k3s/rabbitmq/configmap.yml
 kubectl apply -f ./k3s/rabbitmq/cookie.yml
 kubectl apply -f ./k3s/rabbitmq/admin-account.yml
 kubectl apply -f ./k3s/rabbitmq/statefulset.yml
+kubectl apply -f ./k3s/rabbitmq/ingress.yml
 while [[ $(kubectl get pods --all-namespaces -l app=rabbitmq -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
 # 6. loki helm install
 kubectl apply -f ./k3s/elk/namespace.yml
@@ -39,6 +41,7 @@ kubectl config set-context --current --namespace=loki
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 helm install loki grafana/loki-stack --namespace=loki -f ./k3s/elk/values_loki_default.yaml
+kubectl apply -f ./k3s/elk/ingress.yml
 # 7. vault helm install
 kubectl apply -f ./k3s/vault/namespace.yml
 kubectl config set-context --current --namespace=vault
@@ -63,12 +66,14 @@ kubectl create secret generic tls-ca --from-file=tls.crt=./k3s/vault/cert/root-c
 kubectl create secret generic tls-server --from-file=tls.crt=./k3s/vault/cert/server.crt --from-file=tls.key=./k3s/vault/cert/server.key
 ### install helm chart
 helm install vault hashicorp/vault --namespace=vault -f ./k3s/vault/override-values.yml
+kubectl apply -f ./k3s/vault/ingress.yml
 # 8. rest-api deployment
 kubectl apply -f ./k3s/rest-api/namespace.yml
 kubectl config set-context --current --namespace=rest-api
 kubectl apply -f ./k3s/rest-api/secrets.yml
 kubectl apply -f ./k3s/rest-api/headless-service.yml
 kubectl apply -f ./k3s/rest-api/deployment.yml
+kubectl apply -f ./k3s/rest-api/ingress.yml
 # 9. worker deployment
 # kubectl apply -f ./k3s/worker/namespace.yml
 # kubectl config set-context --current --namespace=worker
