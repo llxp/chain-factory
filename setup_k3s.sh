@@ -54,24 +54,38 @@ cat << EOF >> /etc/exports
 EOF
 exportfs -ar
 
-cat <<EOF > /var/lib/rancher/k3s/server/manifests/nfs.yaml
-apiVersion: helm.cattle.io/v1
-kind: HelmChart
-metadata:
-  name: nfs
-  namespace: default
-spec:
-  chart: nfs-subdir-external-provisioner
-  repo: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner
-  targetNamespace: default
-  set:
-    nfs.server: 127.0.0.1
-    nfs.path: /k3s
-    storageClass.name: standard
-    storageClass.onDelete: retain
-    storageClass.reclaimPolicy: Retain
+# cat <<EOF > /var/lib/rancher/k3s/server/manifests/nfs.yaml
+# apiVersion: helm.cattle.io/v1
+# kind: HelmChart
+# metadata:
+#   name: nfs
+#   namespace: default
+# spec:
+#   chart: nfs-subdir-external-provisioner
+#   repo: https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner
+#   targetNamespace: default
+#   set:
+#     nfs.server: 127.0.0.1
+#     nfs.path: /k3s
+#     storageClass.name: standard
+#     storageClass.onDelete: retain
+#     storageClass.reclaimPolicy: Retain
+# EOF
+
+cat <<EOF > /tmp/nfs.yaml
+nfs:
+  server: 127.0.0.1
+  path: /k3s
+storageClass:
+  name: standard
+  onDelete: retain
+  reclaimPolicy: Retain
+podSecurityPolicy:
+  enabled: true
 EOF
 
 curl -fsSL -o /tmp/get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 chmod 700 /tmp/get_helm.sh
 /tmp/get_helm.sh
+helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner --namespace default -f /tmp/nfs.yaml
