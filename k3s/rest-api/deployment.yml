@@ -20,6 +20,10 @@ spec:
         image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-api:1.0.57
         ports:
         - containerPort: 8000
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
         env:
         - name: SERVER_SECRET
           valueFrom:

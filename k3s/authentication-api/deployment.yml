@@ -27,6 +27,10 @@ spec:
           limits:
             cpu: 500m
             memory: 100Mi
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
         volumeMounts:
           - name: config-file
             mountPath: /config.yaml
