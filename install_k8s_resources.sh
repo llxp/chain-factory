@@ -35,6 +35,9 @@ kubectl apply -f ./k3s/rabbitmq/admin-account.yml
 kubectl apply -f ./k3s/rabbitmq/statefulset.yml
 kubectl apply -f ./k3s/rabbitmq/ingress.yml
 while [[ $(kubectl get pods --all-namespaces -l app=rabbitmq -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
+kubectl exec -it rabbitmq-0 -- rabbitmqctl add_user rest-api Start123
+kubectl exec -it rabbitmq-0 -- rabbitmqctl set_user_tags rest-api administrator
+kubectl exec -it rabbitmq-0 -- rabbitmqctl set_permissions -p / rest-api ".*" ".*" ".*"
 # 6. loki helm install
 kubectl apply -f ./k3s/elk/namespace.yml
 kubectl config set-context --current --namespace=loki

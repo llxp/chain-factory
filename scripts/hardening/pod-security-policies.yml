@@ -475,7 +475,7 @@ spec:
       protocol: TCP
   podSelector:
     matchLabels:
-      app: vault
+      app.kubernetes.io/instance: vault
   policyTypes:
   - Ingress
 ---
