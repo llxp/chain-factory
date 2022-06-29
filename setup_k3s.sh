@@ -24,7 +24,9 @@ export INSTALL_K3S_EXEC="server \
   --kube-controller-manager-arg=terminated-pod-gc-threshold=10 \
   --kube-controller-manager-arg=use-service-account-credentials=true \
   --kubelet-arg=streaming-connection-idle-timeout=5m \
-  --kubelet-arg=make-iptables-util-chains=true"
+  --kubelet-arg=make-iptables-util-chains=true \
+  --disable traefik \
+  --disable servicelb"
 export K3S_KUBECONFIG_MODE="600"
 export INSTALL_K3S_SKIP_START="true"
 curl -sfL https://get.k3s.io | sh -
@@ -44,6 +46,26 @@ cp $SCRIPT_DIR/scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/
 mkdir -p ~/.kube
 chmod 710 ~/.kube
 ln -s /etc/rancher/k3s/k3s.yaml ~/.kube/config
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
+cat <<EOF > /tmp/metallb-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name:
+configdata:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - 172.17.100.10-172.17.10.254
+EOF
+kubectl apply -f /tmp/metallb-configmap.yaml
+cat <<EOF > /tmp/traefik-crd.yaml
+
+EOF
 
 apt install -y nfs-kernel-server nfs-common
 mkdir -p /exports/k3s

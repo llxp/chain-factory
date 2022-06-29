@@ -21,6 +21,7 @@ kubectl apply -f ./k3s/redis/configmap.yml
 kubectl apply -f ./k3s/redis/headless-service.yml
 kubectl apply -f ./k3s/redis/secrets.yml
 kubectl apply -f ./k3s/redis/statefulset.yml
+kubectl apply -f ./k3s/redis/ingress.yml
 while [[ $(kubectl get pods --all-namespaces -l app=redis -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
 # 5. rabbitmq deployment
 kubectl apply -f ./k3s/rabbitmq/namespace.yml
