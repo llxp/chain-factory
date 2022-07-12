@@ -25,6 +25,7 @@ export INSTALL_K3S_EXEC="server \
   --kube-controller-manager-arg=use-service-account-credentials=true \
   --kubelet-arg=streaming-connection-idle-timeout=5m \
   --kubelet-arg=make-iptables-util-chains=true \
+  --disable traefik \
   --disable servicelb"
 export K3S_KUBECONFIG_MODE="600"
 export INSTALL_K3S_SKIP_START="true"
@@ -45,8 +46,8 @@ cp $SCRIPT_DIR/scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/
 mkdir -p ~/.kube
 chmod 710 ~/.kube
 ln -s /etc/rancher/k3s/k3s.yaml ~/.kube/config
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
+# kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
+# kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.3/config/manifests/metallb-native.yaml
 cat <<EOF > /tmp/metallb-configmap.yaml
 apiVersion: metallb.io/v1beta1
@@ -59,7 +60,7 @@ spec:
     - 10.0.2.15-10.0.2.15
 EOF
 kubectl apply -f /tmp/metallb-configmap.yaml
-# kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
+kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
 kubectl apply -f $SCRIPT_DIR/scripts/traefik-crd.yaml
 
 apt install -y nfs-kernel-server nfs-common
