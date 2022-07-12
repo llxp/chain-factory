@@ -1,5 +1,5 @@
 from typing import Optional, List
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from odmantic import AIOEngine
 from motor.motor_asyncio import AsyncIOMotorCollection
 from collections import ChainMap
@@ -116,3 +116,68 @@ async def workflow_logs(
     ]
     results = dict(ChainMap(*aggregations))
     return results
+
+
+@api.delete('/workflow_logs', dependencies=[user_role])
+async def delete_workflow_logs(
+    workflow_id: str,
+    database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
+):
+    # 1. get all task_ids for this workflow
+    # 2. delete all logs for those tasks
+    namespace_dbs = await Namespace.get_namespace_dbs(
+        database, username)
+    if namespace_dbs:
+        collections: List[AsyncIOMotorCollection] = [
+            db.get_collection("task_workflow_association") for db in namespace_dbs  # noqa: E501
+        ]
+        cursors = [
+            collection.find({'workflow_id': workflow_id}) for collection in collections  # noqa: E501
+        ]
+        tasks_results = [
+            await collection.to_list(None) for collection in cursors
+        ]
+        task_ids = [
+            task['task']['task_id'] for task in tasks_results[0]
+        ]
+        logs_collections = [
+            db.get_collection("logs") for db in namespace_dbs
+        ]
+        task_status_collections = [
+            db.get_collection("task_status") for db in namespace_dbs
+        ]
+        workflow_collections = [
+            db.get_collection("workflow") for db in namespace_dbs
+        ]
+        workflow_existing = await workflow_collections[0].find_one(
+            {'workflow_id': workflow_id})
+        if not workflow_existing:
+            raise HTTPException(
+                status_code=501,
+                detail="Workflow not found"
+            )
+        for workflow_collection in workflow_collections:
+            await workflow_collection.delete_many({'workflow_id': workflow_id})
+        for collection in collections:
+            await collection.delete_many({
+                'workflow_id': workflow_id
+            })
+            # if result.deleted_count == 0:
+            #     raise HTTPException(
+            #         status_code=501,
+            #         detail="No workflow found for workflow_id: {}".format(workflow_id)  # noqa: E501
+            #     )
+        for logs_collection in logs_collections:
+            await logs_collection.delete_many({
+                'task_id': {'$in': task_ids}
+            })
+        for task_status_collection in task_status_collections:
+            await task_status_collection.delete_many({
+                'task_id': {'$in': task_ids}
+            })
+        return {'message': 'logs deleted'}
+    raise HTTPException(
+        status_code=501,
+        detail='you are not allowed to delete logs of this workflow'
+    )

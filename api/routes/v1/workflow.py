@@ -202,7 +202,7 @@ async def workflows(
                     ]
                 },
             }),
-            project({'status._id': 0}),
+            project({'status._id': 0, 'entry_task.id': 0}),
             {
                 "$facet": {
                     "workflows": [
@@ -235,6 +235,7 @@ async def workflows(
         doc for collection in collections
         async for doc in collection.aggregate(pipeline)
     ]
+    print(aggregations)
     return aggregations[0]
 
 
