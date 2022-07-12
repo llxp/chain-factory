@@ -44,7 +44,6 @@ async def create_namespace(
             updated_at=datetime.utcnow(),
             allowed_users=[username]
         ))
-        print(namespace_result)
         return NamespaceCreatedResponse(
             namespace=str(namespace_result.id)
         )

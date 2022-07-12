@@ -10,7 +10,8 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 from ...auth.depends import CheckScope, get_username
 from .utils import (
-    check_namespace_allowed, get_allowed_namespaces, get_odm_session, match, project, lookup,
+    check_namespace_allowed, get_allowed_namespaces,
+    get_odm_session, match, project, lookup,
     sort_stage, skip_stage, limit_stage,
     lookup_logs, default_namespace, lookup_workflow_status
 )
@@ -23,6 +24,7 @@ user_role = Depends(CheckScope(scope='user'))
 
 @api.get('/workflows', dependencies=[user_role])
 async def workflows(
+    namespace: str,
     namespaces: List[str] = Depends(get_allowed_namespaces),
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
@@ -32,7 +34,7 @@ async def workflows(
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ):
-    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
+    namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
 
     def search_stage():
         stages = []
@@ -160,7 +162,12 @@ async def workflows(
                     }
                 }
             },
-            lookup('tasks', '_id.workflow_id', 'workflow_id', 'tasks'),
+            lookup(
+                'task_workflow_association',
+                '_id.workflow_id',
+                'workflow_id',
+                'tasks'
+            ),
             project({
                 '_id': 0,
                 'tasks._id': 0,
@@ -246,6 +253,7 @@ async def workflow_tasks(
     pipeline = [
         project({'_id': 0}),
         match({'workflow_id': workflow_id}),
+        project({'task.id': 0}),
         {
             "$facet": {
                 "tasks": [
@@ -275,12 +283,13 @@ async def workflow_tasks(
 
 @api.get('/workflow_status', dependencies=[user_role])
 async def workflow_status(
+    namespace: str,
     database: AIOEngine = Depends(get_odm_session),
     namespaces: List[str] = Depends(get_allowed_namespaces),
     workflow_id: List[str] = Query([]),
     username: str = Depends(get_username),
 ):
-    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
+    namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
 
     def match_stage():
         stage = match({})

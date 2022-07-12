@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from typing import Optional, List
 
 from odmantic import AIOEngine
+from api.auth.utils.credentials import get_domain
 
 from framework.src.chain_factory.task_queue.models.\
     mongodb_models import NodeTasks
@@ -30,7 +31,7 @@ async def active_tasks(
     page_size: Optional[int] = None,
 ):
     # time.sleep(0.5)
-    active_nodes = await nodes(namespace, database, redis_client)
+    active_nodes = await nodes(namespace, username, database, redis_client)
     tasks_result = await tasks(
         namespace,
         username,
@@ -38,17 +39,21 @@ async def active_tasks(
         database,
         page,
         page_size,
-        active_nodes if active_nodes else None,
+        active_nodes,
     )
     return tasks_result
 
 
 async def nodes(
     namespace: str,
+    username: str,
     database: AIOEngine,
     redis_client: Redis
 ) -> List[NodeTasks]:
     node_list: List[NodeTasks] = []
+    domain = await get_domain(username)
+    namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
+    node_tasks_collections = [namespace_db.get_collection(NodeTasks.__collection__) for namespace_db in namespace_dbs]  # noqa: E501
 
     def match_namespace():
         query = {}
@@ -56,18 +61,22 @@ async def nodes(
             return (NodeTasks.namespace == namespace)
         return query
 
-    node_name_list = database.find(NodeTasks, (
+    node_name_lists = [node_tasks_collection.find(
         (match_namespace())
-    ))
-    async for node_name in node_name_list:
-        if (
-            await node_active(
-                node_name.node_name,
-                node_name.namespace,
-                redis_client
-            )
-        ):
-            node_list.append(node_name)
+    ) for node_tasks_collection in node_tasks_collections]
+
+    for node_name_list in node_name_lists:
+        async for node_name in node_name_list:
+            node: NodeTasks = NodeTasks(**node_name)
+            if (
+                await node_active(
+                    node.node_name,
+                    node.namespace,
+                    domain,
+                    redis_client
+                )
+            ):
+                node_list.append(node)
     return node_list
 
 
@@ -89,12 +98,20 @@ async def tasks(
             stage["$match"] = {"tasks.name": {"$regex": rgx}}
         if not default_namespace(namespace):
             stage["$match"]["namespace"] = namespace
-        if nodes:
+        if nodes is not None:
             stage["$match"]["node_name"] = {
-                "$in": [node.node_name for node in (nodes if nodes else [])]
+                "$in": [
+                    node.node_name for node in (
+                        nodes if nodes is not None else []
+                    )
+                ]
             }
             stage["$match"]["namespace"] = {
-                "$in": [node.namespace for node in (nodes if nodes else [])]
+                "$in": [
+                    node.namespace for node in (
+                        nodes if nodes is not None else []
+                    )
+                ]
             }
         return stage
 
@@ -125,16 +142,17 @@ async def tasks(
         ]
         if stage != {}
     ]
-    namespace_db = await Namespace.get_namespace_db(
-        database, namespace, username)
-    if namespace_db:
-        collection = namespace_db.get_collection(NodeTasks.__collection__)
-        result_cursor = collection.aggregate(aggregate_query)
-        result = await result_cursor.to_list(None)
+    namespace_dbs = await Namespace.get_filtered_namespace_dbs(
+        database, username, namespace)
+    if namespace_dbs:
+        collections = [namespace_db.get_collection(NodeTasks.__collection__) for namespace_db in namespace_dbs]  # noqa: E501
+        result_cursors = [collection.aggregate(aggregate_query) for collection in collections]  # noqa: E501
+        results = [await result_cursor.to_list(1) for result_cursor in result_cursors]  # noqa: E501
+        results_0 = [r for result in results for r in result]
+        result = {
+            "node_tasks": [r for result in results_0 for r in result["node_tasks"]],  # noqa: E501
+            "total_count": sum([result["total_count"] for result in results_0 if "total_count" in result and result["total_count"] is not None]),  # noqa: E501
+        }
     else:
-        result = []
-    return (
-        result[0]
-        if len(result) > 0
-        else {"node_tasks": [], "total_count": 0}
-    )
+        result = {"node_tasks": [], "total_count": 0}
+    return result

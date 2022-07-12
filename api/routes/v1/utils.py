@@ -1,6 +1,6 @@
 from distutils.log import debug
-from http.client import HTTPException
-from aioredis import Redis
+from fastapi import HTTPException
+from redis import Redis
 from fastapi import Request, Depends
 from datetime import datetime
 from cryptography.fernet import Fernet
@@ -122,7 +122,7 @@ async def node_active(
         node_name
     )
     debug("Checking node active: " + redis_key)
-    node_status_bytes = await redis_client.get(redis_key)
+    node_status_bytes = redis_client.get(redis_key)
     if node_status_bytes is not None:
         node_status_string = node_status_bytes.decode("utf-8")
         if len(node_status_string) > 0:
@@ -190,7 +190,7 @@ async def check_namespace_allowed(
         )
 
 
-async def get_redis_client(request: Request):
+async def get_redis_client(request: Request) -> Redis:
     try:
         return request.state.redis_client
     except AttributeError:
@@ -205,7 +205,7 @@ async def get_rabbitmq_management_api(request: Request):
             status_code=500, detail="RabbitMQ management API not set")
 
 
-async def get_rabbitmq_url(request: Request):
+async def get_rabbitmq_url(request: Request) -> str:
     try:
         return request.state.rabbitmq_url
     except AttributeError:

@@ -174,3 +174,197 @@ db.workflow.aggregate(
 )
 
 db.workflow_status.distinct('status')
+
+db.task_workflow_association.aggregate(
+  [
+    {
+      '$project': {
+        '_id': 0
+      }
+    },
+    {
+      '$match': {
+        'workflow_id': '55f183c4-aeba-11ec-8ef0-faffc2426d3b-d80aac95-1fe8-4834-90ba-21fc97f1c326'
+      }
+    },
+    {
+      '$project': {
+        'task.id': 0,
+      }
+    },
+    {
+      '$facet': {
+        'tasks': [
+          {
+            '$skip': 0
+          },
+          {
+            '$limit': 10000
+          }
+        ],
+        'total_count': [
+          {
+            '$count': 'count'
+          }
+        ]
+      }
+    },
+    // {
+    //   '$project': {
+    //     'tasks': '$tasks.task',
+    //     'total_count': {
+    //       '$first': '$total_count.count'
+    //     }
+    //   }
+    // }
+  ]
+)
+
+db.workflow.aggregate(
+  [
+    {
+      '$group': {
+        '_id': {
+          'workflow_id': '$workflow_id'
+        },
+        'workflow': {
+          '$addToSet': {
+            'workflow_id': '$workflow_id',
+            'namespace': '$namespace',
+            'tags': '$tags'
+          }
+        },
+        'created_dates': {
+          '$push': '$created_date'
+        }
+      }
+    },
+    {
+      '$lookup': {
+        'from': 'task_workflow_association',
+        'localField': '_id.workflow_id',
+        'foreignField': 'workflow_id',
+        'as': 'tasks'
+      }
+    },
+    {
+      '$project': {
+        '_id': 0,
+        'tasks._id': 0,
+        'tasks.task.workflow_id': 0,
+        'tasks.workflow_id': 0,
+        'tasks.node_name': 0
+      }
+    },
+    {
+      '$project': {
+        'tasks': '$tasks.task',
+        'workflow': {
+          '$first': '$workflow'
+        },
+        'created_date': {
+          '$first': '$created_dates'
+        }
+      }
+    },
+    {
+      '$match': {
+        '$and': [
+          {
+            'workflow.namespace': {
+              '$exists': 'true',
+              '$nin': [
+                '',
+                'null'
+              ]
+            }
+          },
+          {
+            '$and': [
+              {
+                'tasks.name': {
+                  '$regex': /test/
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    // {
+    //   '$project': {
+    //     'entry_task': {
+    //       '$first': '$tasks'
+    //     },
+    //     'workflow': 1,
+    //     'created_date': 1
+    //   }
+    // },
+    // {
+    //   '$lookup': {
+    //     'from': 'workflow_status',
+    //     'localField': 'workflow.workflow_id',
+    //     'foreignField': 'workflow_id',
+    //     'as': 'status'
+    //   }
+    // },
+    // {
+    //   '$project': {
+    //     'entry_task': 1,
+    //     'workflow': 1,
+    //     'created_date': 1,
+    //     'status': {
+    //       '$ifNull': [
+    //         {
+    //           '$first': '$status.status'
+    //         },
+    //         'Running'
+    //       ]
+    //     }
+    //   }
+    // },
+    // {
+    //   '$project': {
+    //     'status._id': 0
+    //   }
+    // },
+    // {
+    //   '$facet': {
+    //     'workflows': [
+    //       {
+    //         '$sort': {
+    //           'created_date': -1
+    //         }
+    //       },
+    //       {
+    //         '$skip': 0
+    //       },
+    //       {
+    //         '$limit': 10
+    //       }
+    //     ],
+    //     'total_count': [
+    //       {
+    //         '$count': 'count'
+    //       }
+    //     ]
+    //   }
+    // },
+    // {
+    //   '$project': {
+    //     'workflows': 1,
+    //     'total_count': {
+    //       '$ifNull': [
+    //         {
+    //           '$first': '$total_count.count'
+    //         },
+    //         0
+    //       ]
+    //     },
+    //     'count': {
+    //       '$size': '$workflows'
+    //     }
+    //   }
+    // }
+  ]
+)

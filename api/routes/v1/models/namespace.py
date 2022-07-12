@@ -91,6 +91,23 @@ class Namespace(Model):
             ]
         return []
 
+    @classmethod
+    async def get_filtered_namespace_dbs(
+        cls,
+        database: AIOEngine,
+        username: str,
+        namespace: str
+    ) -> List[AsyncIOMotorDatabase]:
+        domain = await get_domain(username)
+        namespaces = await cls.get_multiple(database, domain, username)
+        if namespaces:
+            return [
+                await cls.get_namespace_db(
+                    database, ns.namespace, username)
+                for ns in namespaces if namespace == "default" or ns.namespace == namespace  # noqa: E501
+            ]
+        return []
+
 
 class NamespaceCreatedResponse(BaseModel):
     namespace: str = ""
