@@ -21,8 +21,8 @@ spec:
         ports:
         - containerPort: 8000
         securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
+          runAsUser: 101
+          runAsGroup: 101
           runAsNonRoot: true
         env:
         - name: NODE_ENV
