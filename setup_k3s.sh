@@ -63,9 +63,8 @@ configdata:
       - 172.17.100.10-172.17.10.254
 EOF
 kubectl apply -f /tmp/metallb-configmap.yaml
-cat <<EOF > /tmp/traefik-crd.yaml
-
-EOF
+kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
+kubectl apply -f $SCRIPT_DIR/scripts/traefik-crd.yaml
 
 apt install -y nfs-kernel-server nfs-common
 mkdir -p /exports/k3s

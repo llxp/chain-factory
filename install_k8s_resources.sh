@@ -1,4 +1,5 @@
 trap "kill 0" EXIT
+BASE_DOMAIN_ENV=${BASE_DOMAIN:-localhost}
 # 1. mongodb operator
 kubectl apply -f ./k3s/mongodb/namespace.yml
 kubectl config set-context --current --namespace=mongodb-operator
@@ -11,10 +12,13 @@ kubectl apply -f ./k3s/mongodb/mongodb.com_v1_mongodbcommunity_cr.yaml
 helm repo add cowboysysop https://cowboysysop.github.io/charts/
 helm repo update
 helm install mongo-express cowboysysop/mongo-express --namespace=mongodb-operator -f ./k3s/mongodb/values_express.yaml
-kubectl apply -f ./k3s/mongodb/ingress.yml
-while [[ $(kubectl get pods --all-namespaces -l app=example-mongodb-svc -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
+cat ./k3s/mongodb/ingress.yml | sed "s/localhost/$BASE_DOMAIN_ENV/g" | kubectl apply -f -
+while [[ $(kubectl get pods --all-namespaces -l app=example-mongodb-svc -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' | grep "False") ]]; do echo "waiting for pod" && sleep 1; done
 while [[ $(kubectl get pods --all-namespaces -l app.kubernetes.io/name=mongo-express -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
 ./scripts/provision_mongodb.sh
+# 4. mongodb backup cronjob
+kubectl apply -f ./k3s/backup/mongodb-secret.yml
+kubectl apply -f ./k3s/backup/job.yml
 # 4. redis deployment
 kubectl apply -f ./k3s/redis/namespace.yml
 kubectl config set-context --current --namespace=redis
@@ -22,8 +26,8 @@ kubectl apply -f ./k3s/redis/configmap.yml
 kubectl apply -f ./k3s/redis/headless-service.yml
 kubectl apply -f ./k3s/redis/secrets.yml
 kubectl apply -f ./k3s/redis/statefulset.yml
-kubectl apply -f ./k3s/redis/ingress.yml
-while [[ $(kubectl get pods --all-namespaces -l app=redis -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
+cat ./k3s/redis/ingress.yml | sed "s/localhost/$BASE_DOMAIN_ENV/g" | kubectl apply -f -
+while [[ $(kubectl get pods --all-namespaces -l app=redis -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' | grep "False") ]]; do echo "waiting for pod" && sleep 1; done
 # 5. rabbitmq deployment
 kubectl apply -f ./k3s/rabbitmq/namespace.yml
 kubectl config set-context --current --namespace=rabbitmq
@@ -33,8 +37,8 @@ kubectl apply -f ./k3s/rabbitmq/configmap.yml
 kubectl apply -f ./k3s/rabbitmq/cookie.yml
 kubectl apply -f ./k3s/rabbitmq/admin-account.yml
 kubectl apply -f ./k3s/rabbitmq/statefulset.yml
-kubectl apply -f ./k3s/rabbitmq/ingress.yml
-while [[ $(kubectl get pods --all-namespaces -l app=rabbitmq -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
+cat ./k3s/rabbitmq/ingress.yml | sed "s/localhost/$BASE_DOMAIN_ENV/g" | kubectl apply -f -
+while [[ $(kubectl get pods --all-namespaces -l app=rabbitmq -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' | grep "False")]]; do echo "waiting for pod" && sleep 1; done
 kubectl exec -it rabbitmq-0 -- rabbitmqctl add_user rest-api Start123
 kubectl exec -it rabbitmq-0 -- rabbitmqctl set_user_tags rest-api administrator
 kubectl exec -it rabbitmq-0 -- rabbitmqctl set_permissions -p / rest-api ".*" ".*" ".*"
@@ -44,7 +48,7 @@ kubectl config set-context --current --namespace=loki
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 helm install loki grafana/loki-stack --namespace=loki -f ./k3s/elk/values_loki_default.yaml
-kubectl apply -f ./k3s/elk/ingress.yml
+cat ./k3s/elk/ingress.yml | sed "s/localhost/$BASE_DOMAIN_ENV/g" | kubectl apply -f -
 # 7. vault helm install
 kubectl apply -f ./k3s/vault/namespace.yml
 kubectl config set-context --current --namespace=vault
@@ -69,14 +73,14 @@ kubectl create secret generic tls-ca --from-file=tls.crt=./k3s/vault/cert/root-c
 kubectl create secret generic tls-server --from-file=tls.crt=./k3s/vault/cert/server.crt --from-file=tls.key=./k3s/vault/cert/server.key
 ### install helm chart
 helm install vault hashicorp/vault --namespace=vault -f ./k3s/vault/override-values.yml
-kubectl apply -f ./k3s/vault/ingress.yml
+cat ./k3s/vault/ingress.yml | sed "s/localhost/$BASE_DOMAIN_ENV/g" kubectl apply -f -
 # 8. rest-api deployment
 kubectl apply -f ./k3s/rest-api/namespace.yml
 kubectl config set-context --current --namespace=rest-api
 kubectl apply -f ./k3s/rest-api/secrets.yml
 kubectl apply -f ./k3s/rest-api/headless-service.yml
 kubectl apply -f ./k3s/rest-api/deployment.yml
-kubectl apply -f ./k3s/rest-api/ingress.yml
+cat ./k3s/rest-api/ingress.yml | sed "s/localhost/$BASE_DOMAIN_ENV/g" | kubectl apply -f -
 # 9. worker deployment
 # kubectl apply -f ./k3s/worker/namespace.yml
 # kubectl config set-context --current --namespace=worker
@@ -88,7 +92,7 @@ kubectl config set-context --current --namespace=ldap
 kubectl apply -f ./k3s/ldap/secrets.yml
 kubectl apply -f ./k3s/ldap/headless-service.yml
 kubectl apply -f ./k3s/ldap/deployment.yml
-while [[ $(kubectl get pods --all-namespaces -l app=samba-dc -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != "True" ]]; do echo "waiting for pod" && sleep 1; done
+while [[ $(kubectl get pods --all-namespaces -l app=samba-dc -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}' | grep "False") ]]; do echo "waiting for pod" && sleep 1; done
 # 10. authentication-api deployment
 kubectl apply -f ./k3s/authentication-api/namespace.yml
 kubectl config set-context --current --namespace=authentication-api
@@ -98,3 +102,9 @@ kubectl apply -f ./k3s/authentication-api/headless-service.yml
 kubectl apply -f ./k3s/authentication-api/configmap.yml
 kubectl apply -f ./k3s/authentication-api/deployment.yml
 # 11. webui deployment
+
+# output grafana admin password
+echo "grafana admin password:"
+kubectl get secret --namespace loki loki-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+
+echo "The following urls are available: "

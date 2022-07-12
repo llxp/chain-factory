@@ -1,20 +1,20 @@
 kind: Ingress
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: vault-ingress
-  namespace: vault
+  name: rest-api-ingress
+  namespace: rest-api
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.entrypoints: web
 
 spec:
   rules:
-    - host: vault.localhost
+    - host: rest-api.localhost
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: vault-ui
+                name: rest-api-headless
                 port:
-                  number: 8200
+                  number: 8000
