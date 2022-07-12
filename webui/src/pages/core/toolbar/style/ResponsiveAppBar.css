@@ -1,0 +1,18 @@
+.signoutButton {
+    padding-top: 18px;
+    padding-bottom: 18px;
+    margin-right: 0px;
+    margin-left: 0px;
+}
+
+.menuButton {
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 18px;
+    padding-bottom: 18px;
+}
+
+.MuiPopover-paper {
+    max-width: unset;
+    max-height: unset;
+}

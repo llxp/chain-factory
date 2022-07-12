@@ -15,6 +15,7 @@ from .models.namespace import Namespace
 
 api = APIRouter()
 user_role = Depends(CheckScope(scope='user'))
+cleanup_scope = Depends(CheckScope(scope='cleanup'))
 
 
 @api.get('/task_logs', dependencies=[user_role])
@@ -118,7 +119,7 @@ async def workflow_logs(
     return results
 
 
-@api.delete('/workflow_logs', dependencies=[user_role])
+@api.delete('/workflow_logs', dependencies=[cleanup_scope])
 async def delete_workflow_logs(
     workflow_id: str,
     database: AIOEngine = Depends(get_odm_session),
@@ -163,11 +164,6 @@ async def delete_workflow_logs(
             await collection.delete_many({
                 'workflow_id': workflow_id
             })
-            # if result.deleted_count == 0:
-            #     raise HTTPException(
-            #         status_code=501,
-            #         detail="No workflow found for workflow_id: {}".format(workflow_id)  # noqa: E501
-            #     )
         for logs_collection in logs_collections:
             await logs_collection.delete_many({
                 'task_id': {'$in': task_ids}

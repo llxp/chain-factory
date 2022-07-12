@@ -1,4 +1,3 @@
-from collections import ChainMap
 from logging import debug
 from re import compile, UNICODE
 from bson.regex import Regex
@@ -386,7 +385,7 @@ async def workflow_metrics(
     namespaces: List[str] = Depends(get_allowed_namespaces),
     username: str = Depends(get_username),
 ):
-    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
+    namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
     collections = [db.get_collection("workflow") for db in namespace_dbs]
 
     def match_stage():
@@ -431,5 +430,6 @@ async def workflow_metrics(
         doc for collection in collections
         async for doc in collection.aggregate(pipeline)
     ]
-    results = dict(ChainMap(*aggregations))
+    # results = dict(ChainMap(*aggregations))
+    results = aggregations
     return results

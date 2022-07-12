@@ -16,4 +16,5 @@ default_cors_origins = [
     "https://localhost:5004",
     "https://localhost:3000",
     "https://localhost:4200",
+    "http://localhost:8009",
 ]
