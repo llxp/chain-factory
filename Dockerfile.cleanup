@@ -1,0 +1,7 @@
+FROM alpine
+
+RUN apk add --no-cache bash
+
+COPY scripts/cleanup.sh /cleanup.sh
+
+ENTRYPOINT [ "/bin/bash", "/cleanup.sh" ]

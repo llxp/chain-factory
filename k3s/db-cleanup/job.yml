@@ -4,7 +4,7 @@ metadata:
   name: db-cleanup
   namespace: rest-api
 spec:
-  schedule: "0 23 * * *"
+  schedule: "0 23 1 * *"
   successfulJobsHistoryLimit: 5
   failedJobsHistoryLimit: 5
   jobTemplate:
@@ -13,9 +13,7 @@ spec:
         spec:
           containers:
           - name: cleanup
-            image: alpine
-            command: |
-              access_token = $(curl -s -k -d '{"username":"'$IDP_USERNAME'","password":"'$IDP_PASSWORD'","scopes":["auth","user"]}' -H "Content-Type: application/json"
+            image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-cleanup:1.0.0
             env:
             - name: IDP_USERNAME
               valueFrom:
