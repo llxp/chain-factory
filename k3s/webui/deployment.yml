@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webui-deployment
+  namespace: webui
+  labels:
+    app: webui
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webui
+  template:
+    metadata:
+      labels:
+        app: webui
+    spec:
+      containers:
+      - name: webui
+        image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-webui:1.0.0
+        ports:
+        - containerPort: 8000
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: API_URL
+          value: "http://rest-api.localhost:50823"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi

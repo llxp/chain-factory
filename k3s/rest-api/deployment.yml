@@ -108,5 +108,3 @@ spec:
           limits:
             cpu: 100m
             memory: 100Mi
-      imagePullSecrets:
-      - name: llxp-k3s-vbox-pull-secret

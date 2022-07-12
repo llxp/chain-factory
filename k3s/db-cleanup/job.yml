@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-cleanup
+  namespace: rest-api
+spec:
+  schedule: "0 23 * * *"
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cleanup
+            image: alpine
+            command: |
+              access_token = $(curl -s -k -d '{"username":"'$IDP_USERNAME'","password":"'$IDP_PASSWORD'","scopes":["auth","user"]}' -H "Content-Type: application/json"
+            env:
+            - name: IDP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: cleanup-secret
+                  key: idp-username
+                  optional: false
+            - name: IDP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cleanup-secret
+                  key: idp-password
+                  optional: false
+            - name: API_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: cleanup-secret
+                  key: api-endpoint
+                  optional: false
+          restartPolicy: Never
