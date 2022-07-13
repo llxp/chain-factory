@@ -929,7 +929,7 @@ persistence:
   ## If undefined (the default) or set to null, no storageClassName spec is
   ## set, choosing the default provisioner.
   ##
-  storageClass: ""
+  storageClass: "standard"
   ## @param persistence.accessModes PV Access Mode
   ##
   accessModes:
@@ -1760,7 +1760,7 @@ hidden:
     ## If undefined (the default) or set to null, no storageClassName spec is
     ## set, choosing the default provisioner.
     ##
-    storageClass: ""
+    storageClass: "standard"
     ## @param hidden.persistence.accessModes PV Access Mode
     ##
     accessModes:

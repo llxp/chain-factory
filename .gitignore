@@ -10,3 +10,13 @@ venv/
 *.key
 *.crt
 *.csr
+webui_updated/**
+webui_old/**
+k3s/mongodb/old/
+k3s/mongodb/dump/
+k3s/ldap/openldap/
+k3s/rest-api/chart/
+k3s/vault/cert/cert/
+k3s/vault/cert/cert_old/
+k8s/
+scripts/mongodb/

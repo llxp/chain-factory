@@ -59,7 +59,7 @@ spec:
   addresses:
     - 10.0.2.15-10.0.2.20
 EOF
-sleep 10
+sleep 30
 kubectl apply -f /tmp/metallb-configmap.yaml
 kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
 sleep 10
@@ -110,3 +110,5 @@ chmod 700 /tmp/get_helm.sh
 helm repo add nfs-subdir-external-provisioner https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
 helm repo update
 helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner --namespace default -f /tmp/nfs.yaml
+kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+kubectl patch storageclass standard -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
