@@ -25,8 +25,8 @@ export INSTALL_K3S_EXEC="server \
   --kube-controller-manager-arg=use-service-account-credentials=true \
   --kubelet-arg=streaming-connection-idle-timeout=5m \
   --kubelet-arg=make-iptables-util-chains=true \
+  --disable traefik \
   --disable servicelb"
-#   --disable traefik \
 export K3S_KUBECONFIG_MODE="600"
 export INSTALL_K3S_SKIP_START="true"
 curl -sfL https://get.k3s.io | sh -
@@ -57,11 +57,12 @@ metadata:
   name: first-pool
 spec:
   addresses:
-    - 10.0.2.15-10.0.2.15
+    - 10.0.2.15-10.0.2.20
 EOF
 kubectl apply -f /tmp/metallb-configmap.yaml
-# kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
-# kubectl apply -f $SCRIPT_DIR/scripts/traefik-crd.yaml
+kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
+sleep 10
+kubectl apply -f $SCRIPT_DIR/scripts/traefik-crd.yaml
 
 apt install -y nfs-kernel-server nfs-common
 mkdir -p /exports/k3s
