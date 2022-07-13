@@ -59,6 +59,7 @@ spec:
   addresses:
     - 10.0.2.15-10.0.2.20
 EOF
+sleep 10
 kubectl apply -f /tmp/metallb-configmap.yaml
 kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
 sleep 10
