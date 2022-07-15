@@ -73,7 +73,7 @@ LOGGING_CONFIG: dict = {
         # "uvicorn.error": {"level": "INFO"},
         "uvicorn.access": {
             "handlers": ["access", "sys-logger7"],
-            "level": "INFO",
+            "level": "DEBUG",
             "propagate": False
         },
     },

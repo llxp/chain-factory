@@ -58,6 +58,17 @@ metadata:
 spec:
   addresses:
     - 10.0.2.15-10.0.2.20
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: example
+spec:
+  ipAddressPools:
+  - first-pool
+  nodeSelectors:
+  - matchLabels:
+      kubernetes.io/hostname: ubuntu-jammy
 EOF
 sleep 30
 kubectl apply -f /tmp/metallb-configmap.yaml

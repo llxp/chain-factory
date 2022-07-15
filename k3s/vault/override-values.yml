@@ -125,7 +125,7 @@ server:
 # Vault UI
 ui:
   enabled: true
-  serviceType: "LoadBalancer"
+  serviceType: "ClusterIP"
   serviceNodePort: null
   externalPort: 8200
 

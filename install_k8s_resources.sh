@@ -115,3 +115,4 @@ echo "grafana admin password:"
 kubectl get secret --namespace loki loki-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
 
 echo "The following urls are available: "
+cat ~/.kube/config
