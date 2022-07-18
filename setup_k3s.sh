@@ -1,3 +1,8 @@
+#!/bin/sh
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+echo "SCRIPT_DIR: $SCRIPT_DIR"
+
 k3s_token=$(openssl rand -hex 16)
 echo $k3s_token > ./k3s/k3s_token
 # curl -sfL https://get.k3s.io | K3S_TOKEN=$k3s_token sh -s - server --cluster-init
@@ -40,8 +45,6 @@ rules:
 EOF
 systemctl enable k3s.service
 systemctl start k3s.service
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-echo "SCRIPT_DIR: $SCRIPT_DIR"
 while [ ! -d /var/lib/rancher/k3s/server/manifests/ ]; do sleep 1; done
 cp $SCRIPT_DIR/scripts/hardening/pod-security-policies.yml /var/lib/rancher/k3s/server/manifests/policy.yaml
 mkdir -p ~/.kube
@@ -74,9 +77,9 @@ spec:
 EOF
 sleep 30
 kubectl apply -f /tmp/metallb-configmap.yaml
-kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
-sleep 10
-kubectl apply -f $SCRIPT_DIR/scripts/traefik-crd.yaml
+# kubectl apply -f $SCRIPT_DIR/scripts/traefik-deployment.yaml
+# sleep 10
+# kubectl apply -f $SCRIPT_DIR/scripts/traefik-crd.yaml
 
 apt install -y nfs-kernel-server nfs-common
 mkdir -p /exports/k3s
@@ -125,3 +128,8 @@ helm repo update
 helm install nfs-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner --namespace default -f /tmp/nfs.yaml
 kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
 kubectl patch storageclass standard -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+helm repo add traefik https://helm.traefik.io/traefik
+helm repo update
+kubectl create namespace traefik-v2
+helm install traefik traefik/traefik --namespace traefik-v2
+kubectl apply -f $SCRIPT_DIR/scripts/traefik-dashboard.yaml

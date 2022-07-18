@@ -4,7 +4,7 @@ metadata:
   name: webui-ingress
   namespace: webui
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 
 spec:
   rules:

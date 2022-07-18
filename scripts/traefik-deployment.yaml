@@ -54,6 +54,7 @@ spec:
         - --entrypoints.web.Address=:80
         - --entrypoints.websecure.Address=:443
         - --providers.kubernetescrd
+        - --providers.kubernetesingress=true
         # - --certificatesresolvers.myresolver.acme.tlschallenge
         # - --certificatesresolvers.myresolver.acme.email=mail@example.com
         # - --certificatesresolvers.myresolver.acme.storage=acme.json

@@ -4,7 +4,7 @@ metadata:
   name: rabbitmq-ingress
   namespace: rabbitmq
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 
 spec:
   rules:

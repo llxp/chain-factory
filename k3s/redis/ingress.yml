@@ -4,7 +4,7 @@ metadata:
   name: redis-commander-ingress
   namespace: redis
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 
 spec:
   rules:

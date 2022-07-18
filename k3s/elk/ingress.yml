@@ -4,7 +4,7 @@ metadata:
   name: grafana-ingress
   namespace: loki
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 
 spec:
   rules:
