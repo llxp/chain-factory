@@ -1,5 +1,5 @@
-# k3s_token=$(openssl rand -hex 16)
-# echo $k3s_token > ./k3s/k3s_token
+k3s_token=$(openssl rand -hex 16)
+echo $k3s_token > ./k3s/k3s_token
 # curl -sfL https://get.k3s.io | K3S_TOKEN=$k3s_token sh -s - server --cluster-init
 
 cat <<EOF > /etc/sysctl.d/90-kubelet.conf
@@ -29,7 +29,8 @@ export INSTALL_K3S_EXEC="server \
   --disable servicelb"
 export K3S_KUBECONFIG_MODE="600"
 export INSTALL_K3S_SKIP_START="true"
-curl -sfL https://get.k3s.io | sh -
+export K3S_TOKEN=$k3s_token
+curl -sfL https://get.k3s.io | sh -s - server --cluster-init
 mkdir -p -m 700 /var/lib/rancher/k3s/server/logs
 cat <<EOF > /var/lib/rancher/k3s/server/audit.yaml
 apiVersion: audit.k8s.io/v1
@@ -63,6 +64,7 @@ apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
 metadata:
   name: example
+  namespace: metallb-system
 spec:
   ipAddressPools:
   - first-pool
