@@ -339,12 +339,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-all-svclbtraefik-ingress
+  name: allow-all-traefik-ingress
   namespace: kube-system
 spec:
   podSelector: 
     matchLabels:
-      app: svclb-traefik
+      app: traefik
   ingress:
   - {}
   policyTypes:
