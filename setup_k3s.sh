@@ -3,8 +3,11 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 echo "SCRIPT_DIR: $SCRIPT_DIR"
 
-k3s_token=$(openssl rand -hex 16)
-echo $k3s_token > ./k3s/k3s_token
+pregenerated_k3s_token=$(openssl rand -hex 16)
+k3s_token_env=${K3S_TOKEN:-$(cat /tmp/k3s_token)}
+k3s_token=${k3s_token_env:-$pregenerated_k3s_token}
+# k3s_token=$(openssl rand -hex 16)
+# echo $k3s_token > ./k3s/k3s_token
 # curl -sfL https://get.k3s.io | K3S_TOKEN=$k3s_token sh -s - server --cluster-init
 
 cat <<EOF > /etc/sysctl.d/90-kubelet.conf
