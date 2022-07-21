@@ -1,13 +1,18 @@
-#!/bin/sh
+#!/bin/bash
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 echo "SCRIPT_DIR: $SCRIPT_DIR"
+BASE_DOMAIN_ENV=${BASE_DOMAIN:-localhost}
+METALLB_IP_RANGE=${IP_RANGE:-10.0.2.15-10.0.2.20}
+PROVISION_MASTER=${PROVISION_MASTER:-true}
+API_ENDPOINT=${API_ENDPOINT:-https://localhost:6443}
 
 pregenerated_k3s_token=$(openssl rand -hex 16)
 k3s_token_env=${K3S_TOKEN:-$(cat /tmp/k3s_token)}
 k3s_token=${k3s_token_env:-$pregenerated_k3s_token}
 # k3s_token=$(openssl rand -hex 16)
 # echo $k3s_token > ./k3s/k3s_token
+echo $k3s_token
 # curl -sfL https://get.k3s.io | K3S_TOKEN=$k3s_token sh -s - server --cluster-init
 
 cat <<EOF > /etc/sysctl.d/90-kubelet.conf
@@ -19,7 +24,13 @@ kernel.keys.root_maxbytes=25000000
 EOF
 sysctl --system
 
-export INSTALL_K3S_EXEC="server \
+if [ $PROVISION_MASTER == "true" ]; then
+  K3S_EXEC="--cluster-init"
+else
+  K3S_EXEC="--server https://$API_ENDPOINT:8443"
+fi
+
+export INSTALL_K3S_EXEC="server ${K3S_EXEC}\
   --protect-kernel-defaults=true \
 	--kube-apiserver-arg=audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log \
 	--kube-apiserver-arg=audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml \
@@ -64,7 +75,7 @@ metadata:
   name: first-pool
 spec:
   addresses:
-    - 10.0.2.15-10.0.2.20
+    - $METALLB_IP_RANGE
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
@@ -85,11 +96,11 @@ kubectl apply -f /tmp/metallb-configmap.yaml
 # kubectl apply -f $SCRIPT_DIR/scripts/traefik-crd.yaml
 
 apt install -y nfs-kernel-server nfs-common
-mkdir -p /exports/k3s
-chown nobody:nogroup /exports/k3s
+mkdir -p /storage_mount/k3s
+chown nobody:nogroup /storage_mount/k3s
 cat << EOF >> /etc/exports
-/exports 127.0.0.1/8(rw,sync,no_subtree_check,crossmnt,fsid=0)
-/exports/k3s 127.0.0.1/8(rw,sync,no_subtree_check)
+/storage_mount 127.0.0.1/8(rw,sync,no_subtree_check,crossmnt,fsid=0)
+/storage_mount/k3s 127.0.0.1/8(rw,sync,no_subtree_check)
 EOF
 exportfs -ar
 
@@ -135,4 +146,4 @@ helm repo add traefik https://helm.traefik.io/traefik
 helm repo update
 kubectl create namespace traefik-v2
 helm install traefik traefik/traefik --namespace traefik-v2
-kubectl apply -f $SCRIPT_DIR/scripts/traefik-dashboard.yaml
+cat $SCRIPT_DIR/scripts/traefik-dashboard.yaml | sed "s/localhost/$BASE_DOMAIN_ENV/g" | kubectl apply -f -
