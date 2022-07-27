@@ -76,7 +76,7 @@ async def get_user_information(
     headers = {'content-type': 'application/json'}
     url = idp_config.endpoints.user_information_endpoint
     client_certificates = await get_https_certificates(url, idp_config)
-    ca_certificates = await get_ca_certificates(url)
+    ca_certificates = await get_ca_certificates(url)  # noqa
     async with AsyncClient(cert=client_certificates, verify=False) as client:
         try:
             response = await perform_user_information_request(
@@ -90,7 +90,7 @@ async def get_user_information(
             error(f"user information request failed with timeout: {url}")
             return None
         except SSLCertVerificationError as e:
-            error(f"user information request failed with ssl error: {url}, error: {e}")
+            error(f"user information request failed with ssl error: {url}, error: {e}")  # noqa: E501
             return None
     error(f"user information request failed: {url}")
     return None
@@ -113,6 +113,7 @@ async def perform_user_information_request(
             except ValidationError:
                 return None
     error(f"user information request failed: {url}")
+    error(f"response was: {user_information_response.text}")
     return None
 
 

@@ -1,4 +1,3 @@
-from distutils.log import debug
 from typing import List
 from pydantic import BaseModel
 from odmantic import AIOEngine, Model
@@ -14,22 +13,36 @@ class Namespace(Model):
     allowed_users: List[str]  # list of user ids
 
     @classmethod
+    async def get(
+        cls,
+        database: AIOEngine,
+        namespace: str,
+        username: str
+    ) -> 'Namespace':
+        return await database.find_one(
+            Namespace,
+            (
+                (cls.namespace == namespace) &
+                (cls.allowed_users.in_([username]))
+            )
+        )
+
+    @classmethod
     async def get_multiple(
         cls: type,
         database: AIOEngine,
-        domain: str,
         username: str
     ) -> List['Namespace']:
-        if domain:
-            return await database.find(
-                cls,
-                (
-                    (cls.enabled == True) &  # noqa: E712
-                    (cls.domain == domain) &
-                    (cls.allowed_users.in_([username]))
-                )
+        # if domain:
+        return await database.find(
+            cls,
+            (
+                (cls.enabled == True) &  # noqa: E712
+                # (cls.domain == domain) &
+                (cls.allowed_users.in_([username]))
             )
-        return None
+        )
+        # return None
 
     @classmethod
     async def get_allowed(
@@ -37,8 +50,7 @@ class Namespace(Model):
         database: AIOEngine,
         username: str
     ) -> List['Namespace']:
-        domain = await get_domain(username)
-        return await cls.get_multiple(database, domain, username)
+        return await cls.get_multiple(database, username)
 
     @classmethod
     async def is_allowed(
@@ -47,9 +59,7 @@ class Namespace(Model):
         database: AIOEngine,
         username: str
     ):
-        domain = await get_domain(username)
-        debug(database, domain, username)
-        namespaces = await cls.get_multiple(database, domain, username)
+        namespaces = await cls.get_multiple(database, username)
         if namespaces:
             namespaces = [
                 ns for ns in namespaces if ns.namespace == namespace]
@@ -98,8 +108,7 @@ class Namespace(Model):
         username: str,
         namespace: str
     ) -> List[AsyncIOMotorDatabase]:
-        domain = await get_domain(username)
-        namespaces = await cls.get_multiple(database, domain, username)
+        namespaces = await cls.get_multiple(database, username)
         if namespaces:
             return [
                 await cls.get_namespace_db(

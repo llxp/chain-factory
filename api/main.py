@@ -45,7 +45,10 @@ rabbitmq_management_pass = getenv("RABBITMQ_MANAGEMENT_PASS", "guest")
 rabbitmq_manangement_verify = getenv("RABBITMQ_MANAGEMENT_VERIFY", "false")
 rabbitmq_management_port = getenv("RABBITMQ_MANAGEMENT_PORT", 8002)
 rabbitmq_url = getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-origins = getenv("DEFAULT_CORS_ORIGINS", default_cors_origins)
+default_origins = getenv("DEFAULT_CORS_ORIGINS")
+origins = default_origins.split(",") if default_origins else default_cors_origins  # noqa: E501
+print(f"origins {origins}")
+debug(f"origins: {origins}")
 
 # debug("mongodb_url: %s", mongodb_url)
 # debug("mongodb_database: %s", mongodb_database)
@@ -92,7 +95,7 @@ async def not_found(request, exc):
 
 
 exceptions = {
-    404: not_found,
+    # 404: not_found,
 }
 
 # initialize fastapi

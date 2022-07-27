@@ -1,4 +1,3 @@
-from logging import debug
 from re import compile, UNICODE
 from bson.regex import Regex
 from fastapi import APIRouter, Depends, Query
@@ -176,16 +175,18 @@ async def workflows(
             }),
             project({
                 'tasks': '$tasks.task',
-                "workflow": {
-                    "$first": "$workflow"
+                'workflow': {
+                    '$arrayElemAt': ['$workflow', 0]
                 },
                 'created_date': {
-                    '$first': '$created_dates'
+                    '$arrayElemAt': ['$created_dates', 0]
                 }
             }),
             *search_stage(),
             project({
-                'entry_task': {'$first': '$tasks'},
+                'entry_task': {
+                    '$arrayElemAt': ['$tasks', 0]
+                },
                 'workflow': 1,
                 'created_date': 1,
             }),
@@ -196,7 +197,7 @@ async def workflows(
                 'created_date': 1,
                 'status': {
                     '$ifNull': [
-                        {'$first': '$status.status'},
+                        {'$arrayElemAt': ['$status.status', 0]},
                         'Running'
                     ]
                 },
@@ -219,7 +220,9 @@ async def workflows(
             project({
                 "workflows": 1,
                 "total_count": {
-                    '$ifNull': [{"$first": "$total_count.count"}, 0]
+                    '$ifNull': [{
+                        "$arrayElemAt": ["$total_count.count", 0]
+                    }, 0]
                 },
                 'count': {'$size': '$workflows'}
             })
@@ -270,7 +273,7 @@ async def workflow_tasks(
         project({
             'tasks': '$tasks.task',
             'total_count': {
-                '$first': '$total_count.count'
+                '$arrayElemAt': ['$total_count.count', 0]
             }
         })
     ]
@@ -312,7 +315,7 @@ async def workflow_status(
             'status': {
                 '$ifNull': [
                     {
-                        '$first': "$workflow_status.status"
+                        '$arrayElemAt': ["$workflow_status.status", 0]
                     },
                     'Running'
                 ]
@@ -338,7 +341,7 @@ async def workflow_status(
                             '$mergeObjects': [
                                 "$$row",
                                 {
-                                    '$first': {
+                                    '$arrayElemAt': [{
                                         '$filter': {
                                             'input': "$task_status1",
                                             'cond': {
@@ -348,7 +351,7 @@ async def workflow_status(
                                                 ]
                                             }
                                         }
-                                    }
+                                    }, 0]
                                 }
                             ]
                         }
@@ -400,7 +403,7 @@ async def workflow_metrics(
             'status': {
                 '$ifNull': [
                     {
-                        '$first': "$workflow_status.status"
+                        '$arrayElemAt': ["$workflow_status.status", 0]
                     },
                     'Running'
                 ]
@@ -410,7 +413,7 @@ async def workflow_metrics(
                 '$ifNull': [
                     {
                         '$toString': {
-                            '$last': "$workflow_status.created_date"
+                            '$arrayElemAt': ["$workflow_status.created_date", 0]  # noqa: E501
                         },
                     },
                     {
@@ -425,7 +428,6 @@ async def workflow_metrics(
             'workflow_status._id': 0
         })
     ]
-    debug(pipeline)
     aggregations = [
         doc for collection in collections
         async for doc in collection.aggregate(pipeline)

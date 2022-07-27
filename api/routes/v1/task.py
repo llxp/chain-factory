@@ -2,6 +2,7 @@ from aioredis import Redis
 from bson.regex import Regex
 from fastapi import APIRouter, Depends
 from typing import Optional, List
+from logging import debug
 
 from odmantic import AIOEngine
 from api.auth.utils.credentials import get_domain
@@ -32,6 +33,7 @@ async def active_tasks(
 ):
     # time.sleep(0.5)
     active_nodes = await nodes(namespace, username, database, redis_client)
+    debug(active_nodes)
     tasks_result = await tasks(
         namespace,
         username,
@@ -51,7 +53,7 @@ async def nodes(
     redis_client: Redis
 ) -> List[NodeTasks]:
     node_list: List[NodeTasks] = []
-    domain = await get_domain(username)
+    namespace_entries = await Namespace.get_multiple(database, username)
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
     node_tasks_collections = [namespace_db.get_collection(NodeTasks.__collection__) for namespace_db in namespace_dbs]  # noqa: E501
 
@@ -68,15 +70,17 @@ async def nodes(
     for node_name_list in node_name_lists:
         async for node_name in node_name_list:
             node: NodeTasks = NodeTasks(**node_name)
-            if (
-                await node_active(
-                    node.node_name,
-                    node.namespace,
-                    domain,
-                    redis_client
-                )
-            ):
-                node_list.append(node)
+            for namespace_entry in namespace_entries:
+                domain = namespace_entry.domain
+                if (
+                    await node_active(
+                        node.node_name,
+                        node.namespace,
+                        domain,
+                        redis_client
+                    )
+                ):
+                    node_list.append(node)
     return node_list
 
 
@@ -137,7 +141,7 @@ async def tasks(
             },
             project({
                 "node_tasks": 1,
-                "total_count": {"$first": "$total_count.count"},
+                "total_count": {"$arrayElemAt": ["$total_count.count", 0]},
             }),
         ]
         if stage != {}
@@ -145,6 +149,7 @@ async def tasks(
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(
         database, username, namespace)
     if namespace_dbs:
+        debug(aggregate_query)
         collections = [namespace_db.get_collection(NodeTasks.__collection__) for namespace_db in namespace_dbs]  # noqa: E501
         result_cursors = [collection.aggregate(aggregate_query) for collection in collections]  # noqa: E501
         results = [await result_cursor.to_list(1) for result_cursor in result_cursors]  # noqa: E501

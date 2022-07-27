@@ -52,7 +52,7 @@ async def task_log(
         project({
             'log_lines': '$log_lines.log_line',
             'total_count': {
-                '$first': '$total_count.count'
+                '$arrayElemAt': ['$total_count.count', 0]
             }
         })
     ]
@@ -107,7 +107,7 @@ async def workflow_logs(
         project({
             'task_logs': 1,
             'total_count': {
-                '$first': '$total_count.count'
+                '$arrayElemAt': ['$total_count.count', 0]
             }
         }),
     ]
