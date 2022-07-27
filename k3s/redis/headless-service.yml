@@ -4,7 +4,7 @@ metadata:
   name: redis-headless
   namespace: redis
 spec:
-  clusterIP: None
+  # clusterIP: None
   ports:
   - port: 6379
     targetPort: 6379
