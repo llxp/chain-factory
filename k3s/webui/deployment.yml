@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: webui
-        image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-webui:1.0.0
+        image: mtr.external.otc.telekomcloud.com/llxp/chain-factory-webui:1.0.1
         ports:
         - containerPort: 8000
         securityContext:
