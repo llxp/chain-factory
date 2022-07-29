@@ -8,6 +8,7 @@ from .namespace import api as namespace_api
 from .workflow import api as workflow_api
 from .logs import api as logs_api
 from .credentials import api as credentials_api
+from .workflow_control import api as workflow_control_api
 
 
 api = APIRouter(dependencies=[Depends(HTTPBearer())])
@@ -18,3 +19,4 @@ api.include_router(task_control_api, tags=["task"])
 api.include_router(workflow_api, tags=["workflow"])
 api.include_router(logs_api, tags=["logs"])
 api.include_router(credentials_api, tags=["credentials"])
+api.include_router(workflow_control_api, tags=["workflow_control"])

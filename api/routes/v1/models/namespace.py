@@ -91,8 +91,7 @@ class Namespace(Model):
         database: AIOEngine,
         username: str
     ) -> List[AsyncIOMotorDatabase]:
-        domain = await get_domain(username)
-        namespaces = await cls.get_multiple(database, domain, username)
+        namespaces = await cls.get_multiple(database, username)
         if namespaces:
             return [
                 await cls.get_namespace_db(

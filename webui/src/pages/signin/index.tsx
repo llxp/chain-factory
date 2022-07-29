@@ -28,7 +28,7 @@ export function SignIn() {
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    dispatch(signInAsync(username, password, ['auth', 'user']))
+    dispatch(signInAsync(username, password, ['auth', 'user', 'workflow_controller']))
       .then(
         (success: boolean) => {
           enqueueSnackbar(

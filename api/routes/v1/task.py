@@ -5,7 +5,6 @@ from typing import Optional, List
 from logging import debug
 
 from odmantic import AIOEngine
-from api.auth.utils.credentials import get_domain
 
 from framework.src.chain_factory.task_queue.models.\
     mongodb_models import NodeTasks
