@@ -1,4 +1,4 @@
-import { ThunkAction } from "@reduxjs/toolkit";
+import { Action, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { RootState } from "../../../store";
 import { PagedWorkflowTasks, PagedListItemType, HandleWorkflowResponse } from "./models";
 import { handleWorkflow as handleWorkflowAPI, taskLogs, workflows, workflowStatus, workflowTasks } from "../../../api";
@@ -13,7 +13,7 @@ export function fetchWorkflows(
   sortBy: string,
   sortOrder: string
 ): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       dispatch(setWorkflowsFetching(true));
       dispatch(setWorkflowsError(""));
@@ -37,7 +37,7 @@ export function updateWorkflows(
   sortBy: string,
   sortOrder: string
 ): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       const workflowResult = await workflows(namespace, searchTerm, page, rowsPerPage, sortBy, sortOrder);
       dispatch(setWorkflows(workflowsToListItemType(workflowResult)));
@@ -50,7 +50,7 @@ export function updateWorkflows(
 }
 
 export function fetchWorkflowStatus(namespace: string, workflowIds: string | string[]): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     const workflowStatusResult = await workflowStatus(namespace, workflowIds);
     if (workflowStatusResult) {
       for (const workflowStatus of workflowStatusResult) {
@@ -71,7 +71,7 @@ export function fetchWorkflowTasks(
   sortBy: string,
   sortOrder: string
 ): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     dispatch(setWorkflowTasksFetching(true));
     try {
       const workflowTasksResult = await workflowTasks(namespace, workflowId, searchTerm, page, rowsPerPage, sortBy, sortOrder);
@@ -94,7 +94,7 @@ export function fetchTaskLogs(
   searchTerm: string,
   taskId: string
 ): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       dispatch(setTaskLogsError(""));
       const taskLogsResult = await taskLogs(namespace, taskId, searchTerm, page, rowsPerPage);
@@ -112,7 +112,7 @@ export function handleWorkflow(
   workflowId: string,
   action: string
 ): ThunkAction<Promise<HandleWorkflowResponse>, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       return await handleWorkflowAPI(namespace, action, workflowId);
     } catch (error) {

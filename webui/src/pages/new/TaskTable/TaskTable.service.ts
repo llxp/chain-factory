@@ -1,4 +1,4 @@
-import { ThunkAction } from "@reduxjs/toolkit";
+import { Action, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { RootState } from '../../../store';
 import { PagedListItemType } from "./models";
 import { activeTasks, startTask as startTaskApi } from '../../../api';
@@ -7,7 +7,7 @@ import { setRegisteredTasks, setRegisteredTasksError, setRegisteredTasksFetching
 import { HandleWorkflowResponse } from "../../workflows/WorkflowTable/models";
 
 export function fetchAvailableTasks(namespace: string, page: number, rowsPerPage: number, searchTerm: string): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       dispatch(setRegisteredTasksFetching(true));
       dispatch(setRegisteredTasksError(""));
@@ -16,32 +16,32 @@ export function fetchAvailableTasks(namespace: string, page: number, rowsPerPage
       const listItems = tasksToListItemTypes(taskNodes);
       dispatch(setRegisteredTasks(listItems));
       dispatch(setRegisteredTasksFetching(false));
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
       dispatch(setRegisteredTasksFetching(false));
-      dispatch(setRegisteredTasksError(error.toString()));
+      dispatch(setRegisteredTasksError(error.toString() as string));
       dispatch(setRegisteredTasks({} as PagedListItemType));
     }
   };
 }
 
 export function updateAvailableTasks(namespace: string, page: number, rowsPerPage: number, searchTerm: string): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       const activeTasksResult = await activeTasks(namespace, searchTerm, page, rowsPerPage);
       const taskNodes = nodeTasksToTaskNodes(activeTasksResult);
       const listItems = tasksToListItemTypes(taskNodes);
       dispatch(setRegisteredTasks(listItems));
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
       dispatch(setRegisteredTasks({} as PagedListItemType));
-      dispatch(setRegisteredTasksError(error.toString()));
+      dispatch(setRegisteredTasksError(error.toString() as string));
     }
   };
 }
 
 export function startTask(namespace, node, task, taskArguments, tags): ThunkAction<Promise<HandleWorkflowResponse>, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     return await startTaskApi(namespace, node, task, taskArguments, tags);
   };
 }

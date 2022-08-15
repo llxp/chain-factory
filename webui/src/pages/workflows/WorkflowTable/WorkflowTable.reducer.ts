@@ -49,7 +49,7 @@ export const workflowsSlice = createSlice({
   reducers: {
     setWorkflows: (state, action: PayloadAction<PagedListItemType>) => {
       if (action.payload.totalCount === 0 || action.payload.totalCount === undefined) {
-        console.log("error");
+        console.log("no workflows fetched");
         return;
       }
       if (state.workflows.items === undefined) {

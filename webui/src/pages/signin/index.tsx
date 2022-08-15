@@ -97,7 +97,7 @@ export function SignIn() {
 
   const classes = useStyles();
 
-  return (<Grid container direction="row" justify="center">
+  return (<Grid container direction="row" justifyContent="center">
     <Grid container direction="column" className={classes.root} style={{ minHeight: '50vh' }} justifyContent="center" alignItems="center">
       <form className={classes.center} onSubmit={e => onSubmit(e)}>
         <Grid container direction="column">

@@ -1,6 +1,7 @@
+from logging import info
 from re import compile, UNICODE
 from bson.regex import Regex
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional, List
 
 from odmantic import AIOEngine
@@ -8,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 from ...auth.depends import CheckScope, get_username
 from .utils import (
-    check_namespace_allowed, get_allowed_namespaces,
+    check_namespace_allowed_even_disabled, get_allowed_namespaces_even_disabled,  # noqa: E501
     get_odm_session, match, project, lookup,
     sort_stage, skip_stage, limit_stage,
     lookup_logs, default_namespace, lookup_workflow_status
@@ -23,7 +24,7 @@ user_role = Depends(CheckScope(scope='user'))
 @api.get('/workflows', dependencies=[user_role])
 async def workflows(
     namespace: str,
-    namespaces: List[str] = Depends(get_allowed_namespaces),
+    namespaces: List[str] = Depends(get_allowed_namespaces_even_disabled),
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
     search: Optional[str] = None,
@@ -32,7 +33,11 @@ async def workflows(
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
 ):
-    namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
+    namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace, True)  # noqa: E501
+    namespace_dbs = [db for db in namespace_dbs if db is not None]  # noqa: E501
+
+    if not namespace_dbs or namespace_dbs is None:
+        raise HTTPException(status_code=404, detail="Namespace not found")
 
     def search_stage():
         stages = []
@@ -143,6 +148,14 @@ async def workflows(
             stages.append(project({key: 0 for key in keys}))
         return stages
 
+    def check_empty(array: list):
+        if array:
+            return array
+        return [
+            skip_stage(0, 100),
+            limit_stage(0, 100)
+        ]
+
     pipeline = [
         stage for stage in [
             {
@@ -205,7 +218,7 @@ async def workflows(
             project({'status._id': 0, 'entry_task.id': 0}),
             {
                 "$facet": {
-                    "workflows": [
+                    "workflows": check_empty([
                         stage2
                         for stage2 in [
                             sort_stage(sort_by, sort_order),
@@ -213,7 +226,7 @@ async def workflows(
                             limit_stage(page, page_size)
                         ]
                         if stage2 != {}
-                    ],
+                    ]),
                     "total_count": [{"$count": "count"}],
                 }
             },
@@ -229,6 +242,10 @@ async def workflows(
         ] if stage != {}
     ]
 
+    info('Pipeline: {}'.format(pipeline))
+    info(namespace_dbs)
+    info(f"Namespace DBs: {[db.name for db in namespace_dbs if db is not None]}")  # noqa: E501
+
     collections: List[AsyncIOMotorCollection] = [
         db.get_collection("workflow") for db in namespace_dbs
     ]
@@ -243,7 +260,7 @@ async def workflows(
 
 @api.get(
     '/workflow_tasks',
-    dependencies=[user_role, Depends(check_namespace_allowed)]
+    dependencies=[user_role, Depends(check_namespace_allowed_even_disabled)]
 )
 async def workflow_tasks(
     workflow_id: str,
@@ -288,7 +305,7 @@ async def workflow_tasks(
 async def workflow_status(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
-    namespaces: List[str] = Depends(get_allowed_namespaces),
+    namespaces: List[str] = Depends(get_allowed_namespaces_even_disabled),
     workflow_id: List[str] = Query([]),
     username: str = Depends(get_username),
 ):
@@ -385,7 +402,7 @@ async def workflow_status(
 async def workflow_metrics(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
-    namespaces: List[str] = Depends(get_allowed_namespaces),
+    namespaces: List[str] = Depends(get_allowed_namespaces_even_disabled),
     username: str = Depends(get_username),
 ):
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501

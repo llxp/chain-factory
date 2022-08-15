@@ -1,11 +1,18 @@
 import { Grid, Hidden } from '@material-ui/core';
 import React, { useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { selectNamespaceDisabled } from '../core/toolbar/NamespaceSelector/NamespaceSelector.reducer';
 import TaskTable from './TaskTable';
 
 export function New() {
+  const namespaceDisabled = useSelector(selectNamespaceDisabled);
   useEffect(() => {
     document.title = "New"
   }, []);
+
+  if (namespaceDisabled) {
+    return <h1>Namespace disabled</h1>;
+  }
   
   return (
     <div>

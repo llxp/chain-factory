@@ -74,7 +74,12 @@ export function TaskSubTable(props: ITaskSubTableProps) {
             {formElements}
             <br/>
             <Hidden smUp><h2>(Optional) Node Selection:</h2></Hidden>
-            <Combobox label="Run on specific node" key="node_selection" options={props.nodeNames} handleChange={handleNodeChange}/>
+            <Combobox label="Run on specific node" key="node_selection" options={props.nodeNames.map((option) => {
+              return {
+                display: option,
+                value: option,
+              }
+            })} handleChange={handleNodeChange}/>
             <Hidden smUp><h2>(Optional) Tags:</h2></Hidden>
             <TextFieldComponent key="tags" label="Tags" value={tags} onChange={(event) => {handleTagsChange(event.target.value);}}/>
             <br/><Button variant="contained" color="primary" onClick={handleStart}>Start</Button>

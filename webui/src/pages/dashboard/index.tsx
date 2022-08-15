@@ -5,13 +5,14 @@ import NumberIndicator from "../../components/Dashboard/NumberIndicator";
 import PlotChart from "../../components/Dashboard/PlotChart";
 import { fetchNodeMetrics, fetchWorkflowMetrics } from "./Dashboard.service";
 import { useDispatch, useSelector } from "react-redux";
-import { selectNamespace } from "../core/toolbar/NamespaceSelector/NamespaceSelector.reducer";
+import { selectNamespace, selectNamespaceDisabled } from "../core/toolbar/NamespaceSelector/NamespaceSelector.reducer";
 import { selectAllNodes, selectAllWorkflows, selectRunningNodes, selectRunningWorkflows, selectStoppedNodes, selectStoppedWorkflows } from "./Dashboard.reducer";
 import NodeListItem from "./NodeListItem";
 
 export function Dashboard() {
   const dispatch = useDispatch();
   const namespace = useSelector(selectNamespace);
+  const namespaceDisabled = useSelector(selectNamespaceDisabled);
   const allNodes = useSelector(selectAllNodes);
   const runningNodes = useSelector(selectRunningNodes);
   const stoppedNodes = useSelector(selectStoppedNodes);
@@ -24,9 +25,11 @@ export function Dashboard() {
     document.title = "Dashboard"
   }, []);
   useEffect(() => {
-    dispatch(fetchNodeMetrics(namespace));
-    dispatch(fetchWorkflowMetrics(namespace));
-  }, [namespace, dispatch]);
+    if (!namespaceDisabled) {
+      dispatch(fetchNodeMetrics(namespace));
+      dispatch(fetchWorkflowMetrics(namespace));
+    }
+  }, [namespace, dispatch, namespaceDisabled]);
 
   const numberOfWorkflowsLastWeek = datesOfWeek.map((date) => {
     const count = Object.entries(allWorkflows).map((entries) => {
@@ -90,6 +93,10 @@ export function Dashboard() {
     ],
   };
 
+  if (namespaceDisabled) {
+    return <h1>Namespace disabled</h1>;
+  }
+
   return (<div>
     <Grid container direction="row">
       <Grid item md={1} />
@@ -119,8 +126,8 @@ export function Dashboard() {
             </Typography>
             <Paper style={{ maxHeight: 200, width: '100%', minWidth: 400, overflow: 'auto' }}>
               <List>
-                {runningNodes.map(node => <NodeListItem node={node} status="Running" />)}
-                {stoppedNodes.map(node => <NodeListItem node={node} status="Stopped" />)}
+                {runningNodes.map(node => <NodeListItem node={node} status="Running" key={`started_nli${node}`}/>)}
+                {stoppedNodes.map(node => <NodeListItem node={node} status="Stopped" key={`stopped_nli${node}`}/>)}
               </List>
             </Paper>
           </Grid>

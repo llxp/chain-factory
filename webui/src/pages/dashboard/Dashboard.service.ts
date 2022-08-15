@@ -1,10 +1,10 @@
-import { ThunkAction } from "@reduxjs/toolkit";
+import { Action, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { nodeMetrics, workflowMetrics } from "../../api";
 import { RootState } from '../../store';
 import { setAllNodes, setAllWorkflows, setRunningNodes, setRunningWorkflows, setStoppedNodes, setStoppedWorkflows } from "./Dashboard.reducer";
 
 export function fetchNodeMetrics(namespace: string): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       const nodeMetricsResult = await nodeMetrics(namespace);
       dispatch(setAllNodes(Object.keys(nodeMetricsResult)));
@@ -17,7 +17,7 @@ export function fetchNodeMetrics(namespace: string): ThunkAction<void, RootState
 }
 
 export function fetchWorkflowMetrics(namespace: string): ThunkAction<void, RootState, undefined, any> {
-  return async (dispatch, getState) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       const workflowMetricsResult = await workflowMetrics(namespace);
       const workflowsPerDay = workflowMetricsResult.reduce((prev, curr) => {

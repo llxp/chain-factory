@@ -13,8 +13,7 @@ from framework.src.chain_factory.task_queue.models.mongodb_models import (
 from framework.src.chain_factory.task_queue.wrapper.\
     redis_client import RedisClient
 from ...auth.depends import CheckScope
-from ...auth.utils.credentials import get_domain
-from .utils import get_odm_session, get_redis_client, get_username, get_rabbitmq_url, get_rabbitmq_client  # noqa: E501
+from .utils import get_allowed_namespace, get_odm_session, get_redis_client, get_username, get_rabbitmq_url, get_rabbitmq_client  # noqa: E501
 from .models.namespace import Namespace
 
 
@@ -103,6 +102,7 @@ async def restart_workflow(
     redis_client: RedisClient = Depends(get_redis_client),
     username: str = Depends(get_username),
     rabbitmq_url: str = Depends(get_rabbitmq_url),
+    namespace_obj: Namespace = Depends(get_allowed_namespace)
 ):
     namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa: E501
     if namespace_db is not None:
@@ -139,7 +139,7 @@ async def restart_workflow(
                 if first_task is not None:
                     first_task_obj = TaskWorkflowAssociation(**first_task)
                     if first_task_obj is not None:
-                        domain = await get_domain(username)
+                        domain = namespace_obj.domain
                         domain_snake_case = domain.replace('.', '_')
                         vhost = namespace + '_' + domain_snake_case  # noqa: E501
                         rabbitmq_client = await get_rabbitmq_client(vhost, namespace, rabbitmq_url)  # noqa: E501

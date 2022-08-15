@@ -1,9 +1,12 @@
 from datetime import datetime
+from logging import error, info
 from fastapi import APIRouter, Depends, HTTPException
 from odmantic import AIOEngine
+from redis import Redis
+from amqpstorm.management import ManagementApi, ApiError
 from ...auth.depends import CheckScope, get_username
-from .utils import get_odm_session
-from .models.namespace import Namespace, NamespaceCreatedResponse
+from .utils import get_odm_session, get_rabbitmq_management_api, get_redis_client  # noqa: E501
+from .models.namespace import Namespace
 from ...auth.utils.credentials import get_domain
 
 
@@ -16,13 +19,30 @@ async def namespaces(
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
 ):
-    return await database.find(Namespace, (
-        Namespace.allowed_users.in_([username]) &
-        (Namespace.enabled == True)  # noqa: E712
-    ))
+    namespaces = await Namespace.get_allowed(database, username)
+    namespaces_dicts = [ns.dict() for ns in namespaces]
+    for namespace in namespaces_dicts:
+        del namespace['id']
+        del namespace['enabled']
+        del namespace['domain'],
+    return namespaces_dicts
 
 
-@ api.post('/namespaces', dependencies=[user_role])
+@api.get('/namespaces/disabled', dependencies=[user_role])
+async def disabled_namespaces(
+    database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
+):
+    namespaces = await Namespace.get_disabled(database, username)
+    namespaces_dicts = [ns.dict() for ns in namespaces]
+    for namespace in namespaces_dicts:
+        del namespace['id']
+        del namespace['enabled']
+        del namespace['domain'],
+    return namespaces_dicts
+
+
+@api.post('/namespace/{namespace}', dependencies=[user_role])
 async def create_namespace(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
@@ -36,17 +56,164 @@ async def create_namespace(
         Namespace.namespace == namespace
     )
     if not namespace_exists:
+        username_lower = username.lower()
+        domain = await get_domain(username)
+        domain_lower = domain.lower()
+        now = datetime.utcnow()
         namespace_result = await database.save(Namespace(
             namespace=namespace,
-            domain=await get_domain(username),
+            domain=domain_lower,
             enabled=True,
-            created_date=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-            allowed_users=[username]
+            created_at=now,
+            updated_at=now,
+            allowed_users=[username_lower],
+            creator=username_lower,
         ))
-        return NamespaceCreatedResponse(
-            namespace=str(namespace_result.id)
-        )
+        info(f"Created namespace {namespace_result.namespace}")
+        info(f"Allowed users {namespace_result.allowed_users}")
+        info(f"Domain {namespace_result.domain}")
+        if namespace_result and namespace_result.id:
+            return "Namespace created successfully"
+        raise HTTPException(
+            status_code=500, detail="Namespace creation failed")
     else:
         raise HTTPException(
             status_code=400, detail="Namespace already exists")
+
+
+@api.put(
+    '/namespace/{namespace}/add_user/{username}',
+    dependencies=[user_role]
+)
+async def allow_user_to_namespace(
+    namespace: str,
+    username: str,
+    current_user: str = Depends(get_username),
+    database: AIOEngine = Depends(get_odm_session),
+):
+    namespace_obj = await Namespace.get(database, namespace, current_user)
+    if namespace_obj:
+        if username not in namespace_obj.allowed_users:
+            username_lower = username.lower()
+            namespace_obj.allowed_users.append(username_lower)
+            info(f"adding {username_lower} to {namespace_obj.namespace}")
+            namespace_obj.updated_at = datetime.utcnow()
+            await database.save(namespace_obj)
+            return "User allowed to namespace", 200
+        else:
+            return "User already allowed to namespace", 200
+    else:
+        return "Namespace does not exist or you do not have access", 404
+
+
+@api.put(
+    '/namespace/{namespace}/remove_user/{username}',
+    dependencies=[user_role]
+)
+async def remove_user_from_namespace(
+    namespace: str,
+    username: str,
+    current_user: str = Depends(get_username),
+    database: AIOEngine = Depends(get_odm_session),
+):
+    namespace_obj = await Namespace.get(database, namespace, current_user)
+    if namespace_obj:
+        if username in namespace_obj.allowed_users:
+            username_lower = username.lower()
+            namespace_obj.allowed_users.remove(username_lower)
+            info(f"removing {username_lower} from {namespace_obj.namespace}")
+            namespace_obj.updated_at = datetime.utcnow()
+            await database.save(namespace_obj)
+            return "User removed from namespace", 200
+        else:
+            return "User not allowed to namespace", 200
+
+
+@api.delete('/namespace/{namespace}/disable', dependencies=[user_role])
+async def disable_namespace(
+    namespace: str,
+    username: str = Depends(get_username),
+    database: AIOEngine = Depends(get_odm_session),
+):
+    namespace_obj = await Namespace.get(database, namespace, username)
+    if namespace_obj:
+        namespace_obj.enabled = False
+        namespace_obj.updated_at = datetime.utcnow()
+        await database.save(namespace_obj)
+        return "Namespace disabled", 200
+    else:
+        return "Namespace does not exist or you do not have access", 404
+
+
+@api.delete('/namespace/{namespace}/delete', dependencies=[user_role])
+async def delete_namespace(
+    namespace: str,
+    username: str = Depends(get_username),
+    database: AIOEngine = Depends(get_odm_session),
+    redis_client: Redis = Depends(get_redis_client),
+    rabbitmq_management_api: ManagementApi = Depends(
+        get_rabbitmq_management_api),
+):
+    namespace_obj = await Namespace.get_disabled_one(database, namespace, username)  # noqa: E501
+    if namespace_obj:
+        # TODO/DONE: get namespace db
+        # TODO/DONE: delete namespace db
+        # TODO: delete resources in redis
+        # TODO: delete resources in rabbitmq (vhost)
+        # TODO/DONE: delete namespace document
+        namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa
+        if namespace_db:
+            await database.client.drop_database(namespace_db)
+            info(f"Deleted namespace db {namespace_db} in mongodb")
+        email_snake_case = username.replace('.', '_')
+        redis_username = email_snake_case + '_' + namespace
+        redis_client.acl_deluser(redis_username)
+        info(f"Deleted namespace {namespace} in redis")
+        domain_snake_case = namespace_obj.domain.replace('.', '_')
+        vhost_name = namespace + '_' + domain_snake_case
+        try:
+            rabbitmq_management_api.virtual_host.delete(vhost_name)
+            info(f"Deleted namespace {namespace} in rabbitmq")
+        except ApiError as e:
+            error(f"Error deleting namespace {namespace} in rabbitmq: {e}")
+        await database.delete(namespace_obj)
+        info(f"Deleted namespace {namespace} in mongodb")
+        return "Namespace deleted", 200
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="Namespace does not exist or you do not have access"
+        )
+
+
+@api.put('/namespace/{namespace}/enable', dependencies=[user_role])
+async def enable_namespace(
+    namespace: str,
+    username: str = Depends(get_username),
+    database: AIOEngine = Depends(get_odm_session),
+):
+    namespace_obj = await Namespace.get(database, namespace, username, False)
+    if namespace_obj:
+        namespace_obj.enabled = True
+        namespace_obj.updated_at = datetime.utcnow()
+        await database.save(namespace_obj)
+        return "Namespace enabled", 200
+    else:
+        return "Namespace does not exist or you do not have access", 404
+
+
+@api.put('/namespace/{namespace}/rename', dependencies=[user_role])
+async def rename_namespace(
+    namespace: str,
+    new_namespace: str,
+    username: str = Depends(get_username),
+    database: AIOEngine = Depends(get_odm_session),
+):
+    namespace_obj = await Namespace.get(database, namespace, username)
+    if namespace_obj:
+        namespace_obj.namespace = new_namespace
+        namespace_obj.updated_at = datetime.utcnow()
+        await database.save(namespace_obj)
+        return "Namespace renamed", 200
+    else:
+        return "Namespace does not exist or you do not have access", 404

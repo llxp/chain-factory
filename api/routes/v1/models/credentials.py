@@ -1,6 +1,7 @@
 from http.client import HTTPException
 from logging import error, info, warning
 from typing import Union
+from datetime import datetime
 # from aioredis import Redis
 from redis import Redis
 from cryptography.fernet import Fernet
@@ -76,7 +77,7 @@ class MongoDBCredentials(EmbeddedModel):
             password=password,
             host=host,
             port=port,
-            url=f'mongodb://{username}:{password}@{host}:{port}/{db_name}'
+            url=f'mongodb://{username}:{password}@{host}:{port}/{db_name}?readPreference=primaryPreferred'  # noqa: E501
         )
 
 
@@ -240,8 +241,9 @@ class ManagementCredentialsCollection(EmbeddedModel):
 
 class ManagementCredentials(Model):
     namespace: str
-    domain: str
     credentials: Union[str, ManagementCredentialsCollection]
+    creator: str
+    created_at: datetime
 
     @classmethod
     async def new(
@@ -278,18 +280,21 @@ class ManagementCredentials(Model):
             credentials_collection.rabbitmq and
             credentials_collection.redis
         ):
+            email_lower = email.lower()
+            now = datetime.utcnow()
             credentials_data = cls(
                 namespace=namespace,
-                domain=domain,
-                credentials=credentials_collection
+                credentials=credentials_collection,
+                creator=email_lower,
+                created_at=now,
             )
             key = Fernet.generate_key()
             credentials_json = credentials_data.credentials.json()
-            encrypted_credentials_data = encrypt(
-                credentials_json, key.decode('utf-8'))
+            key_str = key.decode('utf-8')
+            encrypted_credentials_data = encrypt(credentials_json, key_str)
             credentials_data.credentials = encrypted_credentials_data
             await database.save(credentials_data)
-            return key.decode('utf-8')
+            return key_str
         return None
 
     @classmethod
@@ -297,11 +302,9 @@ class ManagementCredentials(Model):
         cls: type['ManagementCredentials'],
         database: AIOEngine,
         namespace: str,
-        domain: str,
     ) -> 'ManagementCredentials':
         return await database.find_one(ManagementCredentials, (
-            (cls.namespace == namespace) &
-            (cls.domain == domain)
+            (cls.namespace == namespace)
         ))
 
     @classmethod
@@ -311,11 +314,12 @@ class ManagementCredentials(Model):
         namespace: str,
         domain: str
     ):
-        instance = await cls.get(database, namespace, domain)
+        instance = await cls.get(database, namespace)
         return await database.delete(instance)
 
 
 class ManagementCredentialsResponse(BaseModel):
     namespace: str
-    domain: str
     credentials: ManagementCredentialsCollection
+    created_at: datetime
+    creator: str

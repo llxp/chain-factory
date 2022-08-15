@@ -1,17 +1,21 @@
 import { Action, createSlice, PayloadAction, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { RootState } from "../../store";
 import { useDispatch } from "react-redux";
-import { signIn } from "../../api";
+import { getAccessTokenWithRefreshToken, signIn } from "../../api";
 import { SignInRequest } from "../../models";
 
 interface LoginState {
   token: string;
+  refreshToken: string;
   loggedIn: boolean;
+  tokenLastUpdated: number;
 }
 
 const initialState: LoginState = {
   token: '',
-  loggedIn: false
+  refreshToken: '',
+  loggedIn: false,
+  tokenLastUpdated: 0,
 };
 
 export const signInSlice = createSlice({
@@ -20,6 +24,10 @@ export const signInSlice = createSlice({
   reducers: {
     setToken: (state, action: PayloadAction<string>) => {
       state.token = action.payload;
+      state.tokenLastUpdated = Date.now();
+    },
+    setRefreshToken: (state, action: PayloadAction<string>) => {
+      state.refreshToken = action.payload;
     },
     setLoggedIn: (state, action: PayloadAction<boolean>) => {
       state.loggedIn = action.payload;
@@ -33,7 +41,7 @@ export const signInSlice = createSlice({
 
 export const { setLoggedIn } = signInSlice.actions;
 
-const setToken = signInSlice.actions.setToken;
+const { setToken, setRefreshToken } = signInSlice.actions;
 
 export function signInAsync (username: string, password: string, scopes: string[]): ThunkAction<Promise<boolean>, RootState, undefined, any> {
   return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
@@ -46,6 +54,9 @@ export function signInAsync (username: string, password: string, scopes: string[
       const response = await signIn(signInRequest);
       if (response.access_token) {
         dispatch(setToken(response.access_token.token));
+        if (response.refresh_token) {
+          dispatch(setRefreshToken(response.refresh_token.token));
+        }
         dispatch(setLoggedIn(true));
         return true;
       }
@@ -69,7 +80,7 @@ export function signInAsync (username: string, password: string, scopes: string[
 }
 
 export const signOutAsync = (): ThunkAction<Promise<boolean>, RootState, undefined, any> => {
-  return (dispatch) => {
+  return (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     dispatch(setToken(''));
     dispatch(setLoggedIn(false));
     dispatch({
@@ -79,8 +90,21 @@ export const signOutAsync = (): ThunkAction<Promise<boolean>, RootState, undefin
   }
 }
 
+export const refreshAccessTokenAsync = (refreshToken: string): ThunkAction<Promise<boolean>, RootState, undefined, any> => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
+    const accessToken = await getAccessTokenWithRefreshToken(refreshToken);
+    if (accessToken && accessToken.token && accessToken) {
+      dispatch(setToken(accessToken.token));
+    }
+    return new Promise<boolean>(() => true);
+  }
+}
+
+
 export const selectToken = (state: RootState) => state.signin.token;
 export const selectLoggedIn = (state: RootState) => state.signin.loggedIn;
+export const selectRefreshToken = (state: RootState) => state.signin.refreshToken;
+export const selectTokenLastUpdated = (state: RootState) => state.signin.tokenLastUpdated;
 
 export type ReduxDispatch = ThunkDispatch<RootState, any, Action>;
 export function useReduxDispatch(): ReduxDispatch {

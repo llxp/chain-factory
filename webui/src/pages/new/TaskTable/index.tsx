@@ -2,7 +2,7 @@ import { useSnackbar } from "notistack";
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import useReduxDispatch from "../../../utils/ReduxDispatch";
-import { selectNamespace } from "../../core/toolbar/NamespaceSelector/NamespaceSelector.reducer";
+import { selectNamespace, selectNamespaceDisabled } from "../../core/toolbar/NamespaceSelector/NamespaceSelector.reducer";
 import CollapsedTable from "../../../components/CollapsedTable";
 import { ICollapsedTableRowProps } from "../../../components/CollapsedTable/CollapsedTableRow";
 import TaskSubTable from "./TaskSubTable";
@@ -15,6 +15,7 @@ export default function TaskTable() {
   const dispatch = useDispatch();
   const { enqueueSnackbar } = useSnackbar();
   const namespace = useSelector(selectNamespace);
+  const namespaceDisabled = useSelector(selectNamespaceDisabled);
   const registeredTasks = useSelector(selectRegisteredTasks);
   const registeredTasksFetching = useSelector(selectRegisteredTasksFetching);
   const registeredTasksError = useSelector(selectRegisteredTasksError);
@@ -27,16 +28,20 @@ export default function TaskTable() {
   const handleRefresh = () => dispatch(fetchAvailableTasks(namespace, tasksPage, tasksPerPage, tasksSearch));
 
   useEffect(() => {
-    dispatch(clearRegisteredTasks());
-    dispatch(fetchAvailableTasks(namespace, tasksPage, tasksPerPage, tasksSearch));
-  }, [namespace, tasksPage, tasksPerPage, tasksSearch, dispatch]);
+    if (!namespaceDisabled) {
+      dispatch(clearRegisteredTasks());
+      dispatch(fetchAvailableTasks(namespace, tasksPage, tasksPerPage, tasksSearch));
+    }
+  }, [namespace, tasksPage, tasksPerPage, tasksSearch, namespaceDisabled, dispatch]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      dispatch(updateAvailableTasks(namespace, tasksPage, tasksPerPage, tasksSearch));
-    }, 5000);
-    return () => clearInterval(interval);
-  });
+    if (!namespaceDisabled) {
+      const interval = setInterval(() => {
+        dispatch(updateAvailableTasks(namespace, tasksPage, tasksPerPage, tasksSearch));
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [namespaceDisabled, namespace, tasksPage, tasksPerPage, tasksSearch, dispatch]);
 
   const handleSearch = (text: string) => {
     dispatch(setTasksSearch(text));

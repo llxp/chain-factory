@@ -119,7 +119,7 @@ async def workflow_logs(
     return results
 
 
-@api.delete('/workflow_logs', dependencies=[cleanup_scope])
+@api.delete('/workflow_logs/{workflow_id}', dependencies=[cleanup_scope])
 async def delete_workflow_logs(
     workflow_id: str,
     database: AIOEngine = Depends(get_odm_session),

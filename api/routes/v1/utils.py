@@ -1,4 +1,5 @@
 from distutils.log import debug
+from logging import info
 from fastapi import HTTPException
 from redis import Redis
 from fastapi import Request, Depends
@@ -121,10 +122,11 @@ async def node_active(
         heartbeat_redis_key + "_" +
         node_name
     )
-    debug("Checking node active: " + redis_key)
+    info("Checking node active: " + redis_key)
     node_status_bytes = redis_client.get(redis_key)
     if node_status_bytes is not None:
         node_status_string = node_status_bytes.decode("utf-8")
+        info("Node heartbeat: " + node_status_string)
         if len(node_status_string) > 0:
             heartbeat_status: Heartbeat = Heartbeat.parse_raw(
                 node_status_string)
@@ -165,15 +167,27 @@ async def get_odm_session(request: Request):
 
 
 async def get_allowed_namespaces(
-    request: Request,
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
 ):
     if namespace == "default" or namespace == "all":
         return await Namespace.get_allowed(database, username)
-    if await Namespace.is_allowed(namespace, database, username):
-        return [namespace]
+    if namespace_obj := await Namespace.get(database, namespace, username):
+        return [namespace_obj]
+    raise HTTPException(
+        status_code=403, detail="Namespace not allowed or not found")
+
+
+async def get_allowed_namespaces_even_disabled(
+    namespace: str,
+    database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
+):
+    if namespace == "default" or namespace == "all":
+        return await Namespace.get_allowed(database, username, True)
+    if namespace_obj := await Namespace.get_disabled_one(database, namespace, username):  # noqa: E501
+        return [namespace_obj]
     raise HTTPException(
         status_code=403, detail="Namespace not allowed or not found")
 
@@ -188,6 +202,32 @@ async def check_namespace_allowed(
             status_code=404,
             detail="Namespace not found or you don't have access"
         )
+
+
+async def check_namespace_allowed_even_disabled(
+    namespace: str,
+    database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
+):
+    if not await Namespace.is_allowed(namespace, database, username, True):
+        raise HTTPException(
+            status_code=404,
+            detail="Namespace not found or you don't have access"
+        )
+
+
+async def get_allowed_namespace(
+    namespace: str,
+    database: AIOEngine = Depends(get_odm_session),
+    username: str = Depends(get_username),
+):
+    namespace_obj = await Namespace.get(database, namespace, username)
+    if namespace_obj is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Namespace not found or you don't have access"
+        )
+    return namespace_obj
 
 
 async def get_redis_client(request: Request) -> Redis:

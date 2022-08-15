@@ -5,23 +5,25 @@ import { signOutAsync } from "./pages/signin/signin.slice";
 import { HandleWorkflowResponse, PagedTaskLogs, PagedWorkflows, PagedWorkflowTasks, WorkflowMetrics, WorkflowStatus } from "./pages/workflows/WorkflowTable/models";
 import { store } from "./store";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
-import { SignInRequest, SignInResponse } from "./models";
+import { RefreshTokenResponse, SignInRequest, SignInResponse } from "./models";
 
 const redirectCallback: { (): void } = () => {
   store.dispatch(signOutAsync());
 };
 const authHeader = (config: AxiosRequestConfig) => {
   const token = store.getState().signin.token;
-  config.headers = {
-    ...config.headers,
-    Authorization: `Bearer ${token}`,
-  };
+  if (!config.headers.Authorization) {
+    config.headers = {
+      ...config.headers,
+      Authorization: `Bearer ${token}`,
+    };
+  }
   return config;
 }
 
 const signOut = (config: AxiosResponse<any>) => {
   // console.dir(config.request.status);
-  if (config.request.status === 403) {
+  if (config.request.status === 401) {
     console.log("Not authorized");
     redirectCallback();
   }
@@ -38,6 +40,20 @@ export async function signIn(signInRequest: SignInRequest): Promise<SignInRespon
     signInRequest,
   ).then(response => response.data);
 }
+
+export async function getAccessTokenWithRefreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
+  return axios.post<RefreshTokenResponse>(
+    "/auth/refresh_token",
+    null,
+    {
+      headers: {
+        Authorization: `Bearer ${refreshToken}`,
+      },
+    }
+  ).then(response => response.data);
+}
+  
+
 
 export async function workflows(namespace, searchTerm, page, rowsPerPage, sortBy, sortOrder) {
   return axios.get<PagedWorkflows>(
@@ -78,6 +94,10 @@ export async function namespaces() {
   return axios.get<Namespace[]>("/api/v1/namespaces").then(response => response.data);
 }
 
+export async function disabledNamespaces() {
+  return axios.get<Namespace[]>("/api/v1/namespaces/disabled").then(response => response.data);
+}
+
 export async function activeTasks(namespace: string, searchTerm: string, page: number, rowsPerPage: number) {
   return axios.get<PagedNodeTasks>(
     `/api/v1/active_tasks?namespace=${namespace}&search=${searchTerm}&page=${page}&page_size=${rowsPerPage}`
@@ -97,4 +117,32 @@ export async function nodeMetrics(namespace: string) {
 
 export async function workflowMetrics(namespace: string) {
   return axios.get<WorkflowMetrics[]>(`/api/v1/workflow_metrics?namespace=${namespace}`).then(response => response.data);
+}
+
+export async function rotateNamespacePassword(namespace: string) {
+  return axios.post<string>(`/api/v1/namespace/${namespace}/credentials`).then(response => response.data);
+}
+
+export async function disableNamespace(namespace: string) {
+  return axios.delete<string>(`/api/v1/namespace/${namespace}/disable`).then(response => response.data);
+}
+
+export async function enableNamespace(namespace: string) {
+  return axios.put<string>(`/api/v1/namespace/${namespace}/enable`).then(response => response.data);
+}
+
+export async function createNamespace(namespace: string) {
+  return axios.post<string>(`/api/v1/namespace/${namespace}`).then(response => response.data);
+}
+
+export async function allowUserToNamespace(namespace: string, user: string) {
+  return axios.put<string>(`/api/v1/namespace/${namespace}/add_user`).then(response => response.data);
+}
+
+export async function removeUserFromNamespace(namespace: string, user: string) {
+  return axios.put<string>(`/api/v1/namespace/${namespace}/remove_user`).then(response => response.data);
+}
+
+export async function deleteNamespace(namespace: string) {
+  return axios.delete<string>(`/api/v1/namespace/${namespace}/delete`).then(response => response.data);
 }

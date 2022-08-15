@@ -14,3 +14,8 @@ export interface SignInResponse {
     token_type: string;
   }
 }
+
+export interface RefreshTokenResponse {
+  token: string;
+  token_type: string;
+}
