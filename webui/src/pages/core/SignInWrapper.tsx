@@ -19,11 +19,13 @@ export default function SignInWrapper({ children }) {
   const refreshToken = useSelector(selectRefreshToken);
   const tokenLastUpdated = useSelector(selectTokenLastUpdated);
   useEffect(() => {
-    const time = 1000 * 60 * 5 // refresh token every 10 minutes
-    const interval = setInterval(() => {
+    const time = 1000 * 60 * 10; // refresh token every 10 minutes
+    if (loggedIn) {
       if ((tokenLastUpdated + time) < Date.now()) {
         dispatch(refreshAccessTokenAsync(refreshToken));
       }
+    }
+    const interval = setInterval(() => {
       if (loggedIn) {
         console.log("refreshing token");
         dispatch(refreshAccessTokenAsync(refreshToken));
@@ -32,7 +34,7 @@ export default function SignInWrapper({ children }) {
     return () => {
       clearInterval(interval);
     };
-  }, [tokenLastUpdated, loggedIn, dispatch, refreshToken]);
+  }, [loggedIn, dispatch, refreshToken]);
 
   if (!loggedIn) {
     return <SignIn />
