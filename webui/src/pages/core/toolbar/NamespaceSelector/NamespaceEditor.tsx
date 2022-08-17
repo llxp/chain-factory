@@ -87,7 +87,7 @@ export default function NamespaceEditor() {
     <DialogTitle>Manage Namespace <b>{selectedNamespace}</b></DialogTitle>
     <DialogContent>
       <Grid container spacing={3} direction="column">
-        <Grid item>
+        {/* <Grid item>
           <Tooltip title="Rename Namespace" arrow>
           <FormControl fullWidth>
             <InputLabel htmlFor="namespace-rename">New namespace name</InputLabel>
@@ -104,7 +104,7 @@ export default function NamespaceEditor() {
               </InputAdornment>} />
           </FormControl>
           </Tooltip>
-        </Grid>
+        </Grid> */}
         <Grid item>
           <Grid container direction="row">
             <Grid item xs={4}>
