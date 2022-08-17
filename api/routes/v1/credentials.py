@@ -89,10 +89,8 @@ async def create_credentials(
                 error(f"namespace {namespace} update failed")
         else:
             error(f"credentials for namespace {namespace} not created")
-        raise HTTPException(
-            status_code=500,
-            detail="Could not create credentials"
-        )
+        raise HTTPException(status_code=500, detail="Could not create credentials")  # noqa: E501
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 @api.get(
@@ -128,6 +126,5 @@ async def get_credentials(
         except Exception as e:
             exception(e)
             print_exc()
-            raise HTTPException(
-                status_code=500, detail="Could not decrypt credentials")
+            raise HTTPException(status_code=500, detail="Could not decrypt credentials")  # noqa: E501
     raise HTTPException(status_code=404, detail="Credentials not found")

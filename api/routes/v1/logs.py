@@ -154,10 +154,7 @@ async def delete_workflow_logs(
         workflow_existing = await workflow_collections[0].find_one(
             {'workflow_id': workflow_id})
         if not workflow_existing:
-            raise HTTPException(
-                status_code=501,
-                detail="Workflow not found"
-            )
+            raise HTTPException(status_code=404, detail="Workflow not found")  # noqa: E501
         for workflow_collection in workflow_collections:
             await workflow_collection.delete_many({'workflow_id': workflow_id})
         for collection in collections:
@@ -173,7 +170,4 @@ async def delete_workflow_logs(
                 'task_id': {'$in': task_ids}
             })
         return {'message': 'logs deleted'}
-    raise HTTPException(
-        status_code=501,
-        detail='you are not allowed to delete logs of this workflow'
-    )
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501

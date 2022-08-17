@@ -27,9 +27,7 @@ class CheckScope:
         if bearer_token:
             token = bearer_token.credentials
             return self.get_token(request, token, server_secret)
-        else:
-            raise HTTPException(
-                status_code=403, detail='Authentication required')
+        raise HTTPException(status_code=403, detail='Authentication required')
 
     def get_token(self, request: Request, token: str, server_secret: str):
         decoded_token = self.get_decoded_token(token, server_secret)
@@ -47,10 +45,10 @@ class CheckScope:
                 if decoded_token:
                     return decoded_token
             except ExpiredSignatureError:
-                raise HTTPException(status_code=401, detail='Token expired')
+                raise HTTPException(status_code=403, detail='Token expired')
             except InvalidAudienceError:
                 raise HTTPException(
-                    status_code=403,
+                    status_code=401,
                     detail='User doesn\'t have the appropriate roles assigned'
                 )
         return None

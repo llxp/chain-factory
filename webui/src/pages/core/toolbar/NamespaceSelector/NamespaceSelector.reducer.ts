@@ -17,6 +17,14 @@ interface NamespaceState {
   namespaceDisabled: boolean;
   disableNamespacePromptOpen: boolean;
   deleteNamespacePromptOpen: boolean;
+  namspaceCreateError: string;
+  namespaceDeleteError: string;
+  namespaceDisableError: string;
+  namespaceEnableError: string;
+  namespaceShowCreateError: boolean;
+  namespaceShowDeleteError: boolean;
+  namespaceShowDisableError: boolean;
+  namespaceShowEnableError: boolean;
 }
 
 // Initial state
@@ -34,6 +42,14 @@ const initialState: NamespaceState = {
   namespaceDisabled: false,
   disableNamespacePromptOpen: false,
   deleteNamespacePromptOpen: false,
+  namspaceCreateError: "",
+  namespaceDeleteError: "", 
+  namespaceDisableError: "",
+  namespaceEnableError: "",
+  namespaceShowCreateError: false,
+  namespaceShowDeleteError: false,
+  namespaceShowDisableError: false,
+  namespaceShowEnableError: false,
 };
 
 // Slice Definition
@@ -79,6 +95,30 @@ export const namespaceSlice = createSlice({
     },
     setDeleteNamespacePromptOpen: (state, action: PayloadAction<boolean>) => {
       state.deleteNamespacePromptOpen = action.payload;
+    },
+    setNamespaceCreateError: (state, action: PayloadAction<string>) => {
+      state.namspaceCreateError = action.payload;
+    },
+    setNamespaceDeleteError: (state, action: PayloadAction<string>) => {
+      state.namespaceDeleteError = action.payload;
+    },
+    setNamespaceDisableError: (state, action: PayloadAction<string>) => {
+      state.namespaceDisableError = action.payload;
+    },
+    setNamespaceEnableError: (state, action: PayloadAction<string>) => {
+      state.namespaceEnableError = action.payload;
+    },
+    setNamespaceShowCreateError: (state, action: PayloadAction<boolean>) => {
+      state.namespaceShowCreateError = action.payload;
+    },
+    setNamespaceShowDeleteError: (state, action: PayloadAction<boolean>) => {
+      state.namespaceShowDeleteError = action.payload;
+    },
+    setNamespaceShowDisableError: (state, action: PayloadAction<boolean>) => {
+      state.namespaceShowDisableError = action.payload;
+    },
+    setNamespaceShowEnableError: (state, action: PayloadAction<boolean>) => {
+      state.namespaceShowEnableError = action.payload;
     }
   },
 });
@@ -96,6 +136,14 @@ export const { setNamespaceKey } = namespaceSlice.actions;
 export const { setNamespaceDisabled } = namespaceSlice.actions;
 export const { setDisableNamespacePromptOpen } = namespaceSlice.actions;
 export const { setDeleteNamespacePromptOpen } = namespaceSlice.actions;
+export const { setNamespaceCreateError } = namespaceSlice.actions;
+export const { setNamespaceDeleteError } = namespaceSlice.actions;
+export const { setNamespaceDisableError } = namespaceSlice.actions;
+export const { setNamespaceEnableError } = namespaceSlice.actions;
+export const { setNamespaceShowCreateError } = namespaceSlice.actions;
+export const { setNamespaceShowDeleteError } = namespaceSlice.actions;
+export const { setNamespaceShowDisableError } = namespaceSlice.actions;
+export const { setNamespaceShowEnableError } = namespaceSlice.actions;
 
 export const selectNamespace = (state: RootState) => state.namespace.namespace;
 export const selectNamespaces = (state: RootState) => state.namespace.namespaces;
@@ -110,5 +158,13 @@ export const selectNamespaceKey = (state: RootState) => state.namespace.namespac
 export const selectNamespaceDisabled = (state: RootState) => state.namespace.namespaceDisabled;
 export const selectDisableNamespacePromptOpen = (state: RootState) => state.namespace.disableNamespacePromptOpen;
 export const selectDeleteNamespacePromptOpen = (state: RootState) => state.namespace.deleteNamespacePromptOpen;
+export const selectNamespaceCreateError = (state: RootState) => state.namespace.namspaceCreateError;
+export const selectNamespaceDeleteError = (state: RootState) => state.namespace.namespaceDeleteError;
+export const selectNamespaceDisableError = (state: RootState) => state.namespace.namespaceDisableError;
+export const selectNamespaceEnableError = (state: RootState) => state.namespace.namespaceEnableError;
+export const selectNamespaceShowCreateError = (state: RootState) => state.namespace.namespaceShowCreateError;
+export const selectNamespaceShowDeleteError = (state: RootState) => state.namespace.namespaceShowDeleteError;
+export const selectNamespaceShowDisableError = (state: RootState) => state.namespace.namespaceShowDisableError;
+export const selectNamespaceShowEnableError = (state: RootState) => state.namespace.namespaceShowEnableError;
 
 export const NamespaceSlice = namespaceSlice.reducer;

@@ -186,7 +186,7 @@ class RedisCredentials(EmbeddedModel):
                 '+publish',
             ],
         ):
-            raise HTTPException("failed to set redis acl")
+            raise HTTPException(status_code=500, detail="failed to set redis acl")  # noqa: E501
         return cls(
             key_prefix=db_name,
             username=username,

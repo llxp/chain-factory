@@ -49,12 +49,8 @@ async def create_namespace(
     username: str = Depends(get_username),
 ):
     if namespace == '':
-        raise HTTPException(
-            status_code=400, detail="Namespace cannot be empty")
-    namespace_exists = await database.find_one(
-        Namespace,
-        Namespace.namespace == namespace
-    )
+        raise HTTPException(status_code=400, detail="Namespace cannot be empty")  # noqa: E501
+    namespace_exists = await database.find_one(Namespace, Namespace.namespace == namespace)  # noqa: E501
     if not namespace_exists:
         username_lower = username.lower()
         domain = await get_domain(username)
@@ -74,11 +70,8 @@ async def create_namespace(
         info(f"Domain {namespace_result.domain}")
         if namespace_result and namespace_result.id:
             return "Namespace created successfully"
-        raise HTTPException(
-            status_code=500, detail="Namespace creation failed")
-    else:
-        raise HTTPException(
-            status_code=400, detail="Namespace already exists")
+        raise HTTPException(status_code=500, detail="Namespace creation failed")  # noqa: E501
+    raise HTTPException(status_code=409, detail="Namespace already exists")
 
 
 @api.put(
@@ -99,11 +92,9 @@ async def allow_user_to_namespace(
             info(f"adding {username_lower} to {namespace_obj.namespace}")
             namespace_obj.updated_at = datetime.utcnow()
             await database.save(namespace_obj)
-            return "User allowed to namespace", 200
-        else:
-            return "User already allowed to namespace", 200
-    else:
-        return "Namespace does not exist or you do not have access", 404
+            return "User allowed to namespace"
+        raise HTTPException(status_code=409, detail="User already allowed to namespace")  # noqa: E501
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 @api.put(
@@ -124,9 +115,9 @@ async def remove_user_from_namespace(
             info(f"removing {username_lower} from {namespace_obj.namespace}")
             namespace_obj.updated_at = datetime.utcnow()
             await database.save(namespace_obj)
-            return "User removed from namespace", 200
-        else:
-            return "User not allowed to namespace", 200
+            return "User removed from namespace"
+        raise HTTPException(status_code=404, detail="User not yet allowed to namespace")  # noqa: E501
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 @api.delete('/namespace/{namespace}/disable', dependencies=[user_role])
@@ -140,9 +131,8 @@ async def disable_namespace(
         namespace_obj.enabled = False
         namespace_obj.updated_at = datetime.utcnow()
         await database.save(namespace_obj)
-        return "Namespace disabled", 200
-    else:
-        return "Namespace does not exist or you do not have access", 404
+        return "Namespace disabled"
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 @api.delete('/namespace/{namespace}/delete', dependencies=[user_role])
@@ -162,10 +152,10 @@ async def delete_namespace(
         # TODO: delete resources in rabbitmq (vhost)
         # TODO/DONE: delete namespace document
         namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa
-        if namespace_db:
+        if namespace_db is not None:
             await database.client.drop_database(namespace_db)
             info(f"Deleted namespace db {namespace_db} in mongodb")
-        email_snake_case = username.replace('.', '_')
+        email_snake_case = username.replace('.', '_').replace('@', '_')
         redis_username = email_snake_case + '_' + namespace
         redis_client.acl_deluser(redis_username)
         info(f"Deleted namespace {namespace} in redis")
@@ -176,14 +166,16 @@ async def delete_namespace(
             info(f"Deleted namespace {namespace} in rabbitmq")
         except ApiError as e:
             error(f"Error deleting namespace {namespace} in rabbitmq: {e}")
+        rabbitmq_username = email_snake_case + '_' + namespace
+        try:
+            rabbitmq_management_api.user.delete(rabbitmq_username)
+            info(f"Deleted namespace {namespace} in rabbitmq")
+        except ApiError as e:
+            error(f"Error deleting username {rabbitmq_username} for namespace {namespace} in rabbitmq: {e}")  # noqa: E501
         await database.delete(namespace_obj)
         info(f"Deleted namespace {namespace} in mongodb")
-        return "Namespace deleted", 200
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail="Namespace does not exist or you do not have access"
-        )
+        return "Namespace deleted"
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 @api.put('/namespace/{namespace}/enable', dependencies=[user_role])
@@ -197,9 +189,8 @@ async def enable_namespace(
         namespace_obj.enabled = True
         namespace_obj.updated_at = datetime.utcnow()
         await database.save(namespace_obj)
-        return "Namespace enabled", 200
-    else:
-        return "Namespace does not exist or you do not have access", 404
+        return "Namespace enabled"
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 @api.put('/namespace/{namespace}/rename', dependencies=[user_role])
@@ -214,6 +205,5 @@ async def rename_namespace(
         namespace_obj.namespace = new_namespace
         namespace_obj.updated_at = datetime.utcnow()
         await database.save(namespace_obj)
-        return "Namespace renamed", 200
-    else:
-        return "Namespace does not exist or you do not have access", 404
+        return "Namespace renamed"
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501

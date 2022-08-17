@@ -10,9 +10,7 @@ from odmantic import AIOEngine
 from framework.src.chain_factory.task_queue.common.settings import (
     heartbeat_redis_key, heartbeat_sleep_time
 )
-from framework.src.chain_factory.task_queue.models.redis_models import (
-    Heartbeat
-)
+from framework.src.chain_factory.task_queue.models.redis_models import Heartbeat  # noqa: E501
 from framework.src.chain_factory.task_queue.wrapper.rabbitmq import RabbitMQ
 from ...auth.depends import get_username
 from .models.namespace import Namespace
@@ -175,8 +173,7 @@ async def get_allowed_namespaces(
         return await Namespace.get_allowed(database, username)
     if namespace_obj := await Namespace.get(database, namespace, username):
         return [namespace_obj]
-    raise HTTPException(
-        status_code=403, detail="Namespace not allowed or not found")
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 async def get_allowed_namespaces_even_disabled(
@@ -188,8 +185,7 @@ async def get_allowed_namespaces_even_disabled(
         return await Namespace.get_allowed(database, username, True)
     if namespace_obj := await Namespace.get_disabled_one(database, namespace, username):  # noqa: E501
         return [namespace_obj]
-    raise HTTPException(
-        status_code=403, detail="Namespace not allowed or not found")
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 async def check_namespace_allowed(
@@ -198,10 +194,7 @@ async def check_namespace_allowed(
     username: str = Depends(get_username),
 ):
     if not await Namespace.is_allowed(namespace, database, username):
-        raise HTTPException(
-            status_code=404,
-            detail="Namespace not found or you don't have access"
-        )
+        raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 async def check_namespace_allowed_even_disabled(
@@ -210,10 +203,7 @@ async def check_namespace_allowed_even_disabled(
     username: str = Depends(get_username),
 ):
     if not await Namespace.is_allowed(namespace, database, username, True):
-        raise HTTPException(
-            status_code=404,
-            detail="Namespace not found or you don't have access"
-        )
+        raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 async def get_allowed_namespace(
@@ -223,10 +213,7 @@ async def get_allowed_namespace(
 ):
     namespace_obj = await Namespace.get(database, namespace, username)
     if namespace_obj is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Namespace not found or you don't have access"
-        )
+        raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
     return namespace_obj
 
 
@@ -241,16 +228,14 @@ async def get_rabbitmq_management_api(request: Request):
     try:
         return request.state.rabbitmq_management_api
     except AttributeError:
-        raise HTTPException(
-            status_code=500, detail="RabbitMQ management API not set")
+        raise HTTPException(status_code=500, detail="RabbitMQ management API not set")  # noqa: E501
 
 
 async def get_rabbitmq_url(request: Request) -> str:
     try:
         return request.state.rabbitmq_url
     except AttributeError:
-        raise HTTPException(
-            status_code=500, detail="RabbitMQ URL not set")
+        raise HTTPException(status_code=500, detail="RabbitMQ URL not set")  # noqa: E501
 
 
 def encrypt(message: bytes, key: str) -> bytes:

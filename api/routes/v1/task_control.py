@@ -8,7 +8,7 @@ from ...auth.depends import CheckScope, get_username
 from .utils import (
     check_namespace_allowed, get_rabbitmq_client, get_rabbitmq_url, get_odm_session  # noqa: E501
 )
-from .models.task import NewTaskRequest, TaskCreatedResponse
+from .models.task import NewTaskRequest
 from framework.src.chain_factory.task_queue.models.mongodb_models import NodeTasks, Task  # noqa: E501
 
 
@@ -69,32 +69,26 @@ async def new_task(
                                             print(f"{input_argument} is valid")  # noqa: E501
                                         else:
                                             print(f"{input_argument} is not valid")  # noqa: E501
-                                            raise HTTPException(
-                                                status_code=400,
-                                                detail={
-                                                    'message': f"Argument {input_argument} does not exist for task {task}",  # noqa: E501
-                                                    'invalid_arguments': [input_argument],  # noqa: E501
-                                                },
-                                            )
+                                            raise HTTPException(status_code=400, detail={  # noqa: E501
+                                                'message': f"Argument {input_argument} does not exist for task {task}",  # noqa: E501
+                                                'invalid_arguments': [input_argument],  # noqa: E501
+                                            })
                                     missing_arguments = []
                                     for argument in arguments_task.keys():
                                         if argument not in input_arguments:
                                             print(f"{argument} is not valid")
                                             missing_arguments.append(argument)
                                     if len(missing_arguments) > 0:
-                                        raise HTTPException(
-                                            status_code=400,
-                                            detail={
-                                                'message': f"Arguments {missing_arguments} is missing for task {task}",  # noqa: E501
-                                                'missing_arguments': [missing_arguments],  # noqa: E501
-                                            },
-                                        )
+                                        raise HTTPException(status_code=400, detail={  # noqa: E501
+                                            'message': f"Arguments {missing_arguments} is missing for task {task}",  # noqa: E501
+                                            'missing_arguments': [missing_arguments],  # noqa: E501
+                                        })
                                     if valid_arguments_count == len(input_arguments.keys()) and valid_arguments_count == len(arguments_task):  # noqa: E501
                                         vhost = namespace + '_' + domain_snake_case  # noqa: E501
                                         rabbitmq_client = await get_rabbitmq_client(vhost, namespace, rabbitmq_url)  # noqa: E501
                                         response = await rabbitmq_client.send(new_task.json())  # noqa: E501
                                         if response:
-                                            return TaskCreatedResponse(message="Task created")  # noqa: E501
+                                            return "Task created"
                     raise HTTPException(status_code=400, detail="No node available for the given task")  # noqa: E501
-                raise HTTPException(status_code=400, detail="Task not found")
-    raise HTTPException(status_code=400, detail="Namespace not found or not allowed")  # noqa: E501
+                raise HTTPException(status_code=404, detail="Task not found")
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501

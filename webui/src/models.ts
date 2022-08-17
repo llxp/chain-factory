@@ -19,3 +19,14 @@ export interface RefreshTokenResponse {
   token: string;
   token_type: string;
 }
+
+export interface HTTPException {
+  detail: any;
+}
+
+export function IsHTTPException(o: any): o is HTTPException {
+  if (o instanceof Object) {
+    return 'detail' in o;
+  }
+  return false;
+}

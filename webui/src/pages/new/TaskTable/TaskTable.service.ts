@@ -1,6 +1,6 @@
 import { Action, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { RootState } from '../../../store';
-import { PagedListItemType } from "./models";
+import { PagedListItemType, PagedNodeTasks } from "./models";
 import { activeTasks, startTask as startTaskApi } from '../../../api';
 import { nodeTasksToTaskNodes, tasksToListItemTypes } from "./utils";
 import { setRegisteredTasks, setRegisteredTasksError, setRegisteredTasksFetching } from "./TaskTable.reducer";
@@ -12,7 +12,7 @@ export function fetchAvailableTasks(namespace: string, page: number, rowsPerPage
       dispatch(setRegisteredTasksFetching(true));
       dispatch(setRegisteredTasksError(""));
       const activeTasksResult = await activeTasks(namespace, searchTerm, page, rowsPerPage);
-      const taskNodes = nodeTasksToTaskNodes(activeTasksResult);
+      const taskNodes = nodeTasksToTaskNodes(activeTasksResult as PagedNodeTasks);
       const listItems = tasksToListItemTypes(taskNodes);
       dispatch(setRegisteredTasks(listItems));
       dispatch(setRegisteredTasksFetching(false));
@@ -29,7 +29,7 @@ export function updateAvailableTasks(namespace: string, page: number, rowsPerPag
   return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       const activeTasksResult = await activeTasks(namespace, searchTerm, page, rowsPerPage);
-      const taskNodes = nodeTasksToTaskNodes(activeTasksResult);
+      const taskNodes = nodeTasksToTaskNodes(activeTasksResult as PagedNodeTasks);
       const listItems = tasksToListItemTypes(taskNodes);
       dispatch(setRegisteredTasks(listItems));
     } catch (error: any) {
@@ -42,6 +42,6 @@ export function updateAvailableTasks(namespace: string, page: number, rowsPerPag
 
 export function startTask(namespace, node, task, taskArguments, tags): ThunkAction<Promise<HandleWorkflowResponse>, RootState, undefined, any> {
   return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
-    return await startTaskApi(namespace, node, task, taskArguments, tags);
+    return await startTaskApi(namespace, node, task, taskArguments, tags) as HandleWorkflowResponse;
   };
 }

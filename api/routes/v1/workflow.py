@@ -37,7 +37,7 @@ async def workflows(
     namespace_dbs = [db for db in namespace_dbs if db is not None]  # noqa: E501
 
     if not namespace_dbs or namespace_dbs is None:
-        raise HTTPException(status_code=404, detail="Namespace not found")
+        raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
     def search_stage():
         stages = []

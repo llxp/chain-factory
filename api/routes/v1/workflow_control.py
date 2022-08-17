@@ -52,9 +52,9 @@ async def stop_workflow(
                     namespace=namespace,
                     status='Stopped'
                 ))
-                return 'OK'
+                return "Workflow stopped"
             return 'Workflow already stopped'
-    raise HTTPException(status_code=400, detail='Namespace not found')
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 @api.post('/abort_workflow', dependencies=[workflow_controller_role])
@@ -89,9 +89,9 @@ async def abort_workflow(
                     namespace=namespace,
                     status='Stopped'
                 ))
-                return 'OK'
-            return 'Workflow already stopped'
-    raise HTTPException(status_code=400, detail="Namespace not found")
+                return "Workflow aborted"
+            raise HTTPException(status_code=400, detail="Workflow already stopped")  # noqa: E501
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
 @api.post('/restart_workflow', dependencies=[workflow_controller_role])
@@ -151,6 +151,7 @@ async def restart_workflow(
                         )
                         response = await rabbitmq_client.send(new_task.json())  # noqa: E501
                         if response:
-                            return 'OK'
-                return 'Failed to restart workflow'
-            return 'Workflow already stopped'
+                            return "Workflow restarted"
+                raise HTTPException(status_code=500, detail="Failed to restart workflow")  # noqa: E501
+            raise HTTPException(status_code=400, detail="Workflow already stopped")  # noqa: E501
+    raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501

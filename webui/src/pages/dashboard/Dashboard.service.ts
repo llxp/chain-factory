@@ -1,6 +1,7 @@
 import { Action, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { nodeMetrics, workflowMetrics } from "../../api";
 import { RootState } from '../../store';
+import { WorkflowMetrics } from "../workflows/WorkflowTable/models";
 import { setAllNodes, setAllWorkflows, setRunningNodes, setRunningWorkflows, setStoppedNodes, setStoppedWorkflows } from "./Dashboard.reducer";
 
 export function fetchNodeMetrics(namespace: string): ThunkAction<void, RootState, undefined, any> {
@@ -20,7 +21,7 @@ export function fetchWorkflowMetrics(namespace: string): ThunkAction<void, RootS
   return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
       const workflowMetricsResult = await workflowMetrics(namespace);
-      const workflowsPerDay = workflowMetricsResult.reduce((prev, curr) => {
+      const workflowsPerDay = (workflowMetricsResult as WorkflowMetrics[]).reduce((prev, curr) => {
         const date = new Date(curr.created_date).toDateString();
         if (!prev[date]) {
           prev[date] = [];
@@ -29,7 +30,7 @@ export function fetchWorkflowMetrics(namespace: string): ThunkAction<void, RootS
         return prev;
       }, {});
       dispatch(setAllWorkflows(workflowsPerDay));
-      const runningWorkflowsPerDay = workflowMetricsResult.reduce((prev, curr) => {
+      const runningWorkflowsPerDay = (workflowMetricsResult as WorkflowMetrics[]).reduce((prev, curr) => {
         if (curr.status === "Exception" || curr.status === "Failed") {
           const date = new Date(curr.created_date).toDateString();
           if (!prev[date]) {
@@ -41,7 +42,7 @@ export function fetchWorkflowMetrics(namespace: string): ThunkAction<void, RootS
         return prev;
       }, {});
       dispatch(setRunningWorkflows(runningWorkflowsPerDay));
-      const stoppedWorkflowsPerDay = workflowMetricsResult.reduce((prev, curr) => {
+      const stoppedWorkflowsPerDay = (workflowMetricsResult as WorkflowMetrics[]).reduce((prev, curr) => {
         if (curr.status === "Failed" || curr.status === "Timeout") {
           const date = new Date(curr.created_date).toDateString();
           if (!prev[date]) {

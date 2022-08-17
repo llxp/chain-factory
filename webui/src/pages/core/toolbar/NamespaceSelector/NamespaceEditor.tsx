@@ -65,6 +65,17 @@ export default function NamespaceEditor() {
       Rotate Key
     </Button></Grid>;
   }
+  const DeleteNamespaceButton = () => {
+    return <Button variant="contained" style={{
+      backgroundColor: "#ff0000",
+      color: "#ffffff"
+    }} onClick={()=>{
+      onClose();
+      dispatch(deleteNamespaceAsync(selectedNamespace));
+    }}>
+      Delete
+    </Button>
+  };
   return <Dialog
   open={namespaceEditorOpen}
   onClose={()=>{
@@ -97,15 +108,7 @@ export default function NamespaceEditor() {
         <Grid item>
           <Grid container direction="row">
             <Grid item xs={4}>
-            <Button variant="contained" style={{
-              backgroundColor: "#ff0000",
-              color: "#ffffff"
-            }} onClick={()=>{
-              onClose();
-              dispatch(deleteNamespaceAsync(selectedNamespace));
-            }}>
-              Delete
-            </Button>
+              <DeleteNamespaceButton />
             </Grid>
             <Grid item xs={4}>
               <DisableNamespaceButton />
