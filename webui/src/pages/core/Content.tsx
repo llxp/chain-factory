@@ -6,7 +6,10 @@ export default function Content() {
   return (
     <div className="Page-Container">
       <Header/>
-      <div className="Content-Container">
+      <div className="Content-Container" style={{
+        height: "calc(100vh - 110px)",
+        marginTop: "50px",
+      }}>
         <Router/>
       </div>
     </div>

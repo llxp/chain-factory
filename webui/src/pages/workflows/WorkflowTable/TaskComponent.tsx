@@ -61,6 +61,7 @@ export default function TaskComponent(props: ITaskComponentProps) {
   const currentTaskLogs = taskLogs ? taskLogs[taskId] : null;
 
   if (taskLogsError) {
+    console.log(taskLogsError);
     return (
       <div>
         <Typography color="error">

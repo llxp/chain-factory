@@ -26,7 +26,7 @@ export default function LargeToolbar(props) {
         <Divider orientation="vertical" variant="fullWidth" flexItem key="ctd1"/>
         <span style={{ flexGrow: 0.05 }} key="cts0"/>
         <NamespaceSelector key="namespaceSelector"/>
-        <span style={{ flexGrow: 1 }} key="cts1"/>
+        <span style={{ flexGrow: 0.6 }} key="cts1"/>
         <LargeMenuItem text="Dashboard" path="/orchestrator/dashboard" key="/orchestrator/dashboard"/>
         <LargeMenuItem text="Workflows" path="/orchestrator/workflows" key="/orchestrator/workflows"/>
         <LargeMenuItem text="New" path="/orchestrator/new" key="/orchestrator/new"/>

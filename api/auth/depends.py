@@ -1,5 +1,8 @@
+from typing import Optional
 from fastapi import Depends, Request, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.security.http import HTTPBase, HTTPBearerModel, get_authorization_scheme_param  # noqa: E501
+from starlette.status import HTTP_403_FORBIDDEN
 from jwt import ExpiredSignatureError, InvalidAudienceError
 
 from .utils.request import get_server_secret
@@ -12,6 +15,46 @@ def get_token(request: Request) -> str:
         if auth_header is not None and auth_header.startswith('Bearer '):
             return auth_header[len('Bearer '):]
     return None
+
+
+class HTTPBearer(HTTPBase):
+    def __init__(
+        self,
+        *,
+        bearerFormat: Optional[str] = None,
+        scheme_name: Optional[str] = None,
+        description: Optional[str] = None,
+        auto_error: bool = True,
+    ):
+        self.model = HTTPBearerModel(bearerFormat=bearerFormat, description=description)  # noqa: E501
+        self.scheme_name = scheme_name or self.__class__.__name__
+        self.auto_error = auto_error
+
+    async def __call__(
+        self, request: Request
+    ) -> Optional[HTTPAuthorizationCredentials]:
+        authorization: str = request.headers.get("Authorization")
+        if not authorization:
+            print(request.cookies)
+            cookie = request.cookies.get("Authorization")
+            if (cookie is not None) and cookie.startswith("Bearer "):
+                authorization = cookie
+        scheme, credentials = get_authorization_scheme_param(authorization)
+        if not (authorization and scheme and credentials):
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=HTTP_403_FORBIDDEN, detail="Not authenticated")  # noqa: E501
+            else:
+                return None
+        if scheme.lower() != "bearer":
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=HTTP_403_FORBIDDEN,
+                    detail="Invalid authentication credentials",
+                )
+            else:
+                return None
+        return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)  # noqa: E501
 
 
 class CheckScope:

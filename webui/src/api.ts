@@ -12,28 +12,33 @@ const redirectCallback: { (): void } = () => {
 };
 const authHeader = (config: AxiosRequestConfig) => {
   const token = store.getState().signin.token;
-  if (!config.headers.Authorization) {
-    config.headers = {
-      ...config.headers,
-      Authorization: `Bearer ${token}`,
-    };
-    config.validateStatus = (status) => {
-      return status === 200 || status === 201;
-    };
-  }
+  // if (!config.headers.Authorization) {
+  //   // config.headers = {
+  //   //   ...config.headers,
+  //   //   Authorization: `Bearer ${token}`,
+  //   // };
+  // }
+  config.validateStatus = (status) => {
+    return status === 200 || status === 201;
+  };
   return config;
 }
 
+axios.defaults.withCredentials = true;
 axios.interceptors.request.use(authHeader);
 axios.interceptors.response.use(response => {
   return response;
 }, error => {
-  if (error.response.status === 403) {
+  if (error.response && error.response.status === 403) {
     redirectCallback();
   }
   return Promise.reject(error);
 });
-axios.defaults.baseURL = environment.apiEndpoint;
+const protocol = window.location.protocol;
+console.log(protocol);
+const apiEndpoint = protocol + "//" + environment.apiEndpoint;
+console.log(apiEndpoint);
+axios.defaults.baseURL = apiEndpoint;
 
 export async function signIn(signInRequest: SignInRequest): Promise<SignInResponse> {
   return axios.post<SignInResponse>(

@@ -106,8 +106,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "Cookies"],  # noqa: E501
 )
 app.mount("/static", StaticFiles(directory="api/static"), name="static")
 

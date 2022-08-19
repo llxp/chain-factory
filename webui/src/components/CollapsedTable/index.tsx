@@ -9,10 +9,12 @@ import Error from "./Error";
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
     width: "100%",
+    minHeight: "calc(100vh - 110px)",
   },
   paper: {
     width: '100%',
-    marginBottom: theme.spacing(2),
+    marginBottom: "50px",
+    minHeight: "calc(100vh - 110px - 50px)",
   }
 }));
 
@@ -57,7 +59,6 @@ export default function CollapsedTable(props: ICollapsedTableProps) {
         page={page}
         onPageChange={onPageChange}
         onRowsPerPageChange={onRowsPerPageChange}
-        pages={pages}
       />
     </Paper>
   </div>);

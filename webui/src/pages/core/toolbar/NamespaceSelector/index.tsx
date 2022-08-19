@@ -1,4 +1,4 @@
-import { IconButton, Tooltip } from "@material-ui/core";
+import { Grid, IconButton, makeStyles, Tooltip } from "@material-ui/core";
 import { AutocompleteChangeDetails, AutocompleteChangeReason } from "@material-ui/lab";
 import React from "react";
 import { useEffect } from "react";
@@ -48,22 +48,32 @@ export default function NamespaceSelector() {
 
     const NamespaceButtons = () => {
       const defaultNamespaceSelected = namespace === "default" || namespace === "" || namespace === "all";
+      const buttonStyle = makeStyles({
+        button: {
+          width: "50px",
+          height: "50px",
+        }
+      });
+      const classes = buttonStyle();
       const ManageNamespaceButton = () => {
-        return defaultNamespaceSelected ? <IconButton color="inherit" aria-label="Manage Namespace" onClick={()=>dispatch(setNamespaceEditorOpen(true))} disabled={true}>
+        return defaultNamespaceSelected ? <IconButton color="inherit" aria-label="Manage Namespace" onClick={()=>dispatch(setNamespaceEditorOpen(true))} disabled={true} className={classes.button}>
         <i className="material-icons">settings</i>
-      </IconButton> : <Tooltip title="Manage Namespace Access" arrow key="mna">
+      </IconButton> : <Tooltip title="Manage Namespace Access" arrow key="mna" className={classes.button}>
       <IconButton color="inherit" aria-label="Manage Namespace" onClick={()=>dispatch(setNamespaceEditorOpen(true))} disabled={false}>
         <i className="material-icons">settings</i>
       </IconButton>
     </Tooltip>;
       }
+      const AddNamespaceButton = () => {
+        return <Tooltip title="Add New Namespace" arrow key="ann" className={classes.button}>
+        <IconButton color="inherit" aria-label="Add Namespace" onClick={()=>dispatch(setNamespaceAddDialogOpen(true))}>
+          <i className="material-icons">add</i>
+        </IconButton>
+      </Tooltip>
+      }
       return <>
         <ManageNamespaceButton />
-        <Tooltip title="Add New Namespace" arrow key="ann">
-          <IconButton color="inherit" aria-label="Add Namespace" onClick={()=>dispatch(setNamespaceAddDialogOpen(true))}>
-            <i className="material-icons">add</i>
-          </IconButton>
-        </Tooltip>
+        <AddNamespaceButton />
       </>;
     }
 
@@ -88,10 +98,10 @@ export default function NamespaceSelector() {
       <Combobox options={options} currentOption={{
         display: namespace,
         value: namespace,
-      }} label="Select Namespace" handleChange={handleChange} key="cb"/>
-      <NamespaceButtons key="nb"/>
-      <NamespaceEditor key="ne"/>
-      <NamespaceAddDialog key="na"/>
+      }} label="Select Namespace" handleChange={handleChange}/>
+      <NamespaceButtons/>
+      <NamespaceEditor/>
+      <NamespaceAddDialog/>
     </>
   }
   return <></>;

@@ -4,11 +4,11 @@ import { ICollapsedTableRowProps } from "./CollapsedTableRow";
 import { isMobile } from "react-device-detect";
 import CollapsedTableBody from "./CollapsedTableBody";
 import CollapsedTableHead from "./CollapsedTableHead";
-import { getWindowDimensions } from "../../utils/ScreenUtils";
+//import { getWindowDimensions } from "../../utils/ScreenUtils";
 import { makeStyles } from "@material-ui/styles";
 
-const heightMobile = getWindowDimensions().height - 190;
-const heightDesktop = 550; //getWindowDimensions().height - 250;
+const heightMobile = "calc(100vh - 110px - 50px - 52px - 64px)"; //getWindowDimensions().height - 190;
+const heightDesktop = "calc(100vh - 110px - 50px - 52px - 64px)"; //getWindowDimensions().height - 250;
 
 const useStyles = makeStyles((theme: Theme) => ({
   table: {

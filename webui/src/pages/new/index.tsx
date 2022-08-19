@@ -17,7 +17,7 @@ export function New() {
   return (
     <div>
       <Hidden xsDown>
-      <Grid container spacing={0} justifyContent="center" alignItems="center" wrap="nowrap" style={{marginTop: 50}}>
+      <Grid container spacing={0} justifyContent="center" alignItems="center" wrap="nowrap">
         <Grid item md={1}/>
         <Grid item md={10}>
           <TaskTable/>

@@ -10,8 +10,8 @@ from .logs import api as logs_api
 from .credentials import api as credentials_api
 from .workflow_control import api as workflow_control_api
 
-
-api = APIRouter(dependencies=[Depends(HTTPBearer())])
+# dependencies=[Depends(HTTPBearer())]
+api = APIRouter()
 api.include_router(node_api, tags=["node"])
 api.include_router(namespace_api, tags=["namespace"])
 api.include_router(task_api, tags=["task"])

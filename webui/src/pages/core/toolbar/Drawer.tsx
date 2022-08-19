@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { signOutAsync } from "../../signin/signin.slice";
 import { SmallMenuItem } from "./Drawer/SmallMenuItem";
+import NamespaceSelector from "./NamespaceSelector";
 
 export default function Drawer(props) {
 
@@ -19,9 +20,11 @@ export default function Drawer(props) {
     <div>
       <AppBar>
         <Toolbar>
-          <Grid container direction="row" justifyContent="space-between" alignItems="center">
-            <MenuIcon onClick={() => { setDrawer(true); }}/>
-            <Typography color="inherit" variant="h6"></Typography>
+          <Grid container direction="row" justifyContent="space-between" alignItems="center" alignContent="center" style={{
+            height: "100px"
+          }}>
+            <Grid item xs={1}><MenuIcon onClick={() => { setDrawer(true); }}/></Grid>
+            <Grid item xs={11}><Grid container><NamespaceSelector key="namespaceSelector"/></Grid></Grid>
           </Grid>
         </Toolbar>
       </AppBar>

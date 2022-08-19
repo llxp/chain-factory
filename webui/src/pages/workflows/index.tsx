@@ -10,7 +10,9 @@ export function Workflows() {
   return (
     <div>
       <Hidden xsDown>
-      <Grid container direction="row" spacing={0} justifyContent="center" alignItems="center" wrap="nowrap" style={{marginTop: 50}}>
+      <Grid container direction="row" spacing={0} justifyContent="center" alignItems="center" wrap="nowrap" style={{
+        minHeight: "calc(100vh - 110px)",
+      }}>
         <Grid item md={1}/>
         <Grid item md={10}>
           <WorkflowTable/>

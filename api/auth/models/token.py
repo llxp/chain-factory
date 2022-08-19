@@ -82,7 +82,7 @@ class TokenResponse(BaseModel):
         username: str,
         scopes: List[str],
         server_secret: str
-    ) -> str:
+    ) -> 'TokenResponse':
         if not scopes:
             return None
         token = Token(

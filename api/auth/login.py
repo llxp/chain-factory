@@ -1,5 +1,5 @@
 from logging import error, info, debug
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from httpx import ConnectError, ConnectTimeout
 from odmantic import AIOEngine
 from httpx import AsyncClient
@@ -28,6 +28,7 @@ api = APIRouter()
 @api.post('/login')
 async def login(
     request: Request,
+    response: Response,
     credentials: LoginRequest,
     database: AIOEngine = Depends(get_odm_session),
     server_secret: str = Depends(get_server_secret)
@@ -47,24 +48,35 @@ async def login(
                 if user_information:
                     hostname = request.url.hostname
                     info(user_information)
-                    return dict(
-                        access_token=await create_token(
-                            hostname,
-                            credentials,
-                            server_secret,
-                            user_information,
-                            database,
-                        ),
-                        refresh_token=TokenResponse(
-                            token=await create_refresh_token(
-                                database,
-                                hostname,
-                                server_secret,
-                                credentials
-                            ),
-                            token_type='bearer'
-                        )
+                    access_token = await create_token(
+                        hostname,
+                        credentials,
+                        server_secret,
+                        user_information,
+                        database,
                     )
+                    refresh_token = TokenResponse(
+                        token=await create_refresh_token(
+                            database,
+                            hostname,
+                            server_secret,
+                            credentials
+                        ),
+                        token_type='bearer'
+                    )
+                    response.set_cookie(
+                        key='Authorization',
+                        value='Bearer ' + access_token.token,
+                        max_age=60 * 15,  # cookie will expire in 15 minutes
+                        httponly=True,
+                    )
+                    response.set_cookie(
+                        key='RefreshToken',
+                        value='Bearer ' + refresh_token.token,
+                        max_age=60 * 60 * 24,  # cookie will expire in 24 hours
+                        httponly=True
+                    )
+                    return dict(access_token=access_token, refresh_token=refresh_token)  # noqa: E501
     info(f"login failed for user {credentials.username}")
     raise HTTPException(status_code=403, detail='authentication failed')
 

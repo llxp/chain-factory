@@ -120,9 +120,13 @@ class Namespace(Model):
         cls,
         database: AIOEngine,
         namespace: str,
-        username: str
+        username: str,
+        include_disabled: bool = False,
     ) -> AsyncIOMotorDatabase:
-        namespace_in_db = await cls.get(database, namespace, username)
+        if include_disabled:
+            namespace_in_db = await cls.get_disabled_one(database, namespace, username)  # noqa: E501
+        else:
+            namespace_in_db = await cls.get(database, namespace, username)
         if namespace_in_db:
             domain = namespace_in_db.domain
             domain_snake_case = domain.replace('.', '_')
@@ -162,7 +166,7 @@ class Namespace(Model):
         if namespaces:
             return [
                 await cls.get_namespace_db(
-                    database, ns.namespace, username)
+                    database, ns.namespace, username, include_disabled)
                 for ns in namespaces if namespace in ["default", "all"] or ns.namespace == namespace  # noqa: E501
             ]
         return []

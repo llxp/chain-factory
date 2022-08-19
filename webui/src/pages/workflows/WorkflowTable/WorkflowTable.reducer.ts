@@ -1,4 +1,5 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSelector, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { DefaultRootState } from "react-redux";
 import { RootState } from "../../../store";
 import { PagedListItemType, PagedTaskLogs, PagedWorkflowTasks, TaskStatus } from "./models";
 
@@ -20,6 +21,8 @@ interface WorkflowsState {
   taskLogsFetching: boolean;
   taskLogsError: string;
   selectedWorkflows: string[];
+  tasksPages: { [key: string]: number };
+  workflowTasksPerPage: { [key: string]: number };
 }
 
 // Initial state
@@ -40,6 +43,8 @@ const initialState: WorkflowsState = {
   taskLogsFetching: false,
   taskLogsError: "",
   selectedWorkflows: [] as string[],
+  tasksPages: {} as { [key: string]: number },
+  workflowTasksPerPage: {} as { [key: string]: number },
 };
 
 // Slice Definition
@@ -154,32 +159,47 @@ export const workflowsSlice = createSlice({
     },
     setSelectedWorkflows: (state, action: PayloadAction<string[]>) => {
       state.selectedWorkflows = action.payload;
+    },
+    setWorkflowPage: (state, action: PayloadAction<{ workflowId: string, page: number }>) => {
+      if (state.tasksPages) {
+        state.tasksPages[action.payload.workflowId] = action.payload.page;
+      } else {
+        state.tasksPages = {};
+        state.tasksPages[action.payload.workflowId] = action.payload.page;
+      }
+    },
+    setWorkflowTasksPerPage: (state, action: PayloadAction<{ workflowId: string, perPage: number }>) => {
+      if (state.workflowTasksPerPage) {
+        state.workflowTasksPerPage[action.payload.workflowId] = action.payload.perPage;
+      } else {
+        state.workflowTasksPerPage = {};
+        state.workflowTasksPerPage[action.payload.workflowId] = action.payload.perPage;
+      }
     }
   },
 });
 
 // export reducers
-export const {
-  setWorkflows,
-  updateWorkflowStatus,
-  updateTaskStatus,
-  clearWorkflows,
-  setWorkflowsFetching,
-  setWorkflowsError,
-  setWorkflowDetailsOpened,
-  setWorkflowsSortBy,
-  setWorkflowsSortOrder,
-  setWorkflowsSearch,
-  setWorkflowsPage,
-  setWorkflowsPerPage,
-  setWorkflowTasks,
-  setWorkflowTasksFetching,
-  setWorkflowTasksError,
-  setTaskLogs,
-  setTaskLogsFetching,
-  setTaskLogsError,
-  setSelectedWorkflows,
-} = workflowsSlice.actions;
+export const { setWorkflows } = workflowsSlice.actions;
+export const { updateWorkflowStatus } = workflowsSlice.actions;
+export const { updateTaskStatus } = workflowsSlice.actions;
+export const { clearWorkflows } = workflowsSlice.actions;
+export const { setWorkflowsFetching } = workflowsSlice.actions;
+export const { setWorkflowsError } = workflowsSlice.actions;
+export const { setWorkflowDetailsOpened } = workflowsSlice.actions;
+export const { setWorkflowsSortBy } = workflowsSlice.actions;
+export const { setWorkflowsSortOrder } = workflowsSlice.actions;
+export const { setWorkflowsSearch } = workflowsSlice.actions;
+export const { setWorkflowsPage } = workflowsSlice.actions;
+export const { setWorkflowsPerPage } = workflowsSlice.actions;
+export const { setWorkflowTasks } = workflowsSlice.actions;
+export const { setWorkflowTasksFetching } = workflowsSlice.actions;
+export const { setWorkflowTasksError } = workflowsSlice.actions;
+export const { setTaskLogs } = workflowsSlice.actions;
+export const { setTaskLogsFetching } = workflowsSlice.actions;
+export const { setTaskLogsError } = workflowsSlice.actions;
+export const { setSelectedWorkflows } = workflowsSlice.actions;
+export const { setWorkflowPage } = workflowsSlice.actions;
 
 export const selectWorkflows = (state: RootState) => state.workflows.workflows;
 export const selectWorkflowsFetching = (state: RootState) => state.workflows.workflowsFetching;
@@ -190,12 +210,16 @@ export const selectWorkflowsSortOrder = (state: RootState) => state.workflows.wo
 export const selectWorkflowsSearch = (state: RootState) => state.workflows.workflowsSearch;
 export const selectWorkflowsPage = (state: RootState) => state.workflows.workflowsPage;
 export const selectWorkflowsPerPage = (state: RootState) => state.workflows.workflowsPerPage;
-export const selectWorkflowTasks = (state: RootState) => state.workflows.workflowTasks;
+export const selectWorkflowTasks = (state: RootState, workflowId: string) => state.workflows.workflowTasks[workflowId] || { total_count: 0, tasks: [], count: 0 };
 export const selectWorkflowTasksFetching = (state: RootState) => state.workflows.workflowTasksFetching;
 export const selectWorkflowTasksError = (state: RootState) => state.workflows.workflowTasksError;
 export const selectTaskLogs = (state: RootState) => state.workflows.taskLogs;
 export const selectTaskLogsFetching = (state: RootState) => state.workflows.taskLogsFetching;
 export const selectTaskLogsError = (state: RootState) => state.workflows.taskLogsError;
 export const selectSelectedWorkflows = (state: RootState) => state.workflows.selectedWorkflows;
+export const selectTasksPages = (state: RootState) => state.workflows.tasksPages;
+export const selectWorkflowPage = (state: RootState, workflowId: string) => state.workflows.tasksPages[workflowId] || 1;
+export const selectWorkflowTasksCount = (state: RootState, workflowId: string) => state.workflows.workflowTasks[workflowId] ? state.workflows.workflowTasks[workflowId].total_count : 0;
+export const selectWorkflowTasksPerPage = (state: RootState, workflowId: string) => state.workflows.workflowTasksPerPage[workflowId] || 1;
 
 export const WorkflowsSlice = workflowsSlice.reducer;

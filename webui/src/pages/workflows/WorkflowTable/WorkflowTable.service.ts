@@ -78,6 +78,7 @@ export function fetchWorkflowTasks(
       dispatch(setWorkflowTasks({workflowId: workflowId, workflowTasks: workflowTasksResult as PagedWorkflowTasks}));
       dispatch(setWorkflowTasksFetching(false));
       dispatch(setWorkflowTasksError(false));
+      // dispatch(setTasksPage({workflowId: workflowId, page: 0}));
     } catch (error) {
       console.log(error);
       dispatch(setWorkflowTasks({workflowId: workflowId, workflowTasks: {} as PagedWorkflowTasks}));
@@ -100,9 +101,9 @@ export function fetchTaskLogs(
       const taskLogsResult = await taskLogs(namespace, taskId, searchTerm, page, rowsPerPage);
       dispatch(setTaskLogs({ taskId: taskId, taskLogs: taskLogsResult as PagedTaskLogs }));
       dispatch(setTaskLogsError(""));
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
-      dispatch(setTaskLogsError(error as string));
+      dispatch(setTaskLogsError(error.toJSON()));
     }
   };
 }
