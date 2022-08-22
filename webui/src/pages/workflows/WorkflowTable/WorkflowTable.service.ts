@@ -74,7 +74,7 @@ export function fetchWorkflowTasks(
   return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     dispatch(setWorkflowTasksFetching(true));
     try {
-      const workflowTasksResult = await workflowTasks(namespace, workflowId, searchTerm, page, rowsPerPage, sortBy, sortOrder);
+      const workflowTasksResult = await workflowTasks(namespace, workflowId, page, rowsPerPage, sortBy, sortOrder);
       dispatch(setWorkflowTasks({workflowId: workflowId, workflowTasks: workflowTasksResult as PagedWorkflowTasks}));
       dispatch(setWorkflowTasksFetching(false));
       dispatch(setWorkflowTasksError(false));

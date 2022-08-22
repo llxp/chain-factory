@@ -21,7 +21,7 @@ user_role = Depends(CheckScope(scope='user'))
 node_admin_role = Depends(CheckScope(scope='node_admin'))
 
 
-@ api.post('/stop_node', dependencies=[node_admin_role])
+@ api.post('/node/{node_name}/stop', dependencies=[node_admin_role])
 async def stop_node(
     namespace: str,
     node_name: str,
@@ -61,7 +61,7 @@ async def stop_node(
     return nodes
 
 
-@ api.get('/node_metrics', dependencies=[user_role])
+@ api.get('/metrics', dependencies=[user_role])
 async def node_metrics(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),

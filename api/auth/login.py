@@ -69,12 +69,16 @@ async def login(
                         value='Bearer ' + access_token.token,
                         max_age=60 * 15,  # cookie will expire in 15 minutes
                         httponly=True,
+                        samesite='none',
+                        secure=True,
                     )
                     response.set_cookie(
                         key='RefreshToken',
                         value='Bearer ' + refresh_token.token,
                         max_age=60 * 60 * 24,  # cookie will expire in 24 hours
-                        httponly=True
+                        httponly=True,
+                        samesite='none',
+                        secure=True,
                     )
                     return dict(access_token=access_token, refresh_token=refresh_token)  # noqa: E501
     info(f"login failed for user {credentials.username}")

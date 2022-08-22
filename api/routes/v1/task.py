@@ -5,12 +5,14 @@ from typing import Optional, List
 from logging import debug
 
 from odmantic import AIOEngine
+from motor.motor_asyncio import AsyncIOMotorCollection
 
 from framework.src.chain_factory.task_queue.models.\
     mongodb_models import NodeTasks
 from ...auth.depends import CheckScope, get_username
 from .utils import (
-    default_namespace, get_odm_session, get_redis_client, node_active,
+    default_namespace, facet, get_allowed_namespaces,
+    get_odm_session, get_redis_client, node_active,
     unwind, match, project, skip_stage, limit_stage
 )
 from .models.namespace import Namespace
@@ -20,7 +22,7 @@ api = APIRouter()
 user_role = Depends(CheckScope(scope='user'))
 
 
-@api.get("/active_tasks", dependencies=[user_role])
+@api.get("/active", dependencies=[user_role])
 async def active_tasks(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
@@ -160,3 +162,48 @@ async def tasks(
     else:
         result = {"node_tasks": [], "total_count": 0}
     return result
+
+
+@api.get('/{task_id}/logs', dependencies=[user_role])
+async def task_logs(
+    task_id: str,
+    namespaces: List[str] = Depends(get_allowed_namespaces),
+    username: str = Depends(get_username),
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
+    database: AIOEngine = Depends(get_odm_session),
+):
+    namespace_dbs = await Namespace.get_namespace_dbs(
+        database, username)
+    collections: List[AsyncIOMotorCollection] = [
+        db.get_collection("logs") for db in namespace_dbs
+    ]
+    pipeline = [
+        match({'task_id': task_id}),
+        project({
+            'log_line': 1,
+            '_id': 0,
+        }),
+        facet({
+            "log_lines": [
+                stage2
+                for stage2 in [
+                    skip_stage(page, page_size),
+                    limit_stage(page, page_size)
+                ]
+                if stage2 != {}
+            ],
+            "total_count": [{"$count": "count"}],
+        }),
+        project({
+            'log_lines': '$log_lines.log_line',
+            'total_count': {
+                '$arrayElemAt': ['$total_count.count', 0]
+            }
+        })
+    ]
+    aggregations = [
+        doc for collection in collections
+        async for doc in collection.aggregate(pipeline)
+    ]
+    return aggregations[0]

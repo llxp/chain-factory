@@ -17,7 +17,7 @@ user_role = Depends(CheckScope(scope='user'))
 
 
 @api.post(
-    "/new_task",
+    "/new",
     dependencies=[user_role, Depends(check_namespace_allowed)]
 )
 async def new_task(

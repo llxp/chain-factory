@@ -21,7 +21,7 @@ api = APIRouter()
 workflow_controller_role = Depends(CheckScope(scope='workflow_controller'))
 
 
-@api.post('/stop_workflow', dependencies=[workflow_controller_role])
+@api.post('/{workflow_id}/stop', dependencies=[workflow_controller_role])
 async def stop_workflow(
     namespace: str,
     workflow_id: str,
@@ -57,7 +57,7 @@ async def stop_workflow(
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
-@api.post('/abort_workflow', dependencies=[workflow_controller_role])
+@api.post('/{workflow_id}/abort', dependencies=[workflow_controller_role])
 async def abort_workflow(
     namespace: str,
     workflow_id: str,
@@ -94,7 +94,7 @@ async def abort_workflow(
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
-@api.post('/restart_workflow', dependencies=[workflow_controller_role])
+@api.post('/{workflow_id}/restart', dependencies=[workflow_controller_role])
 async def restart_workflow(
     namespace: str,
     workflow_id: str,

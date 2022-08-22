@@ -8,10 +8,10 @@ from .depends import CheckScope
 
 
 api = APIRouter()
-api.include_router(login_api, tags=['login'])
-api.include_router(user_profile_api, tags=['user_profile'])
-api.include_router(translate_users_api, tags=['translate_users'])
-api.include_router(refresh_token_api, tags=['refresh_token'])
+api.include_router(login_api, tags=["auth"])
+api.include_router(user_profile_api, tags=["auth"])
+api.include_router(translate_users_api, tags=["auth"])
+api.include_router(refresh_token_api, tags=["auth"])
 
 __all__ = [
     api,

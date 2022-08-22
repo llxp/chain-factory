@@ -54,7 +54,7 @@ export default function CollapsedTablePagination(props: ICollapsedTablePaginatio
       </Grid>
       <Grid item>
         <Pagination
-        count={Math.floor(count / rowsPerPage)} page={page + 1}
+        count={Math.ceil(count / rowsPerPage)} page={page + 1}
         onChange={(event: any, page: number) => onPageChange?.(page - 1)}
         boundaryCount={1}
         siblingCount={0}

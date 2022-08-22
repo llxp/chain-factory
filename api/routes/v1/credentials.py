@@ -36,7 +36,7 @@ user_role = Depends(CheckScope(scope='user'))
 
 
 @api.post(
-    "/namespace/{namespace}/credentials",
+    "/{namespace}/credentials",
     summary="Create credentials for a namespace",
     response_model=Union[str, dict],
     dependencies=[user_role]
@@ -94,7 +94,7 @@ async def create_credentials(
 
 
 @api.get(
-    '/namespace/{namespace}/credentials',
+    '/{namespace}/credentials',
     response_model=ManagementCredentialsResponse,
     dependencies=[user_role, Depends(check_namespace_allowed)]
 )

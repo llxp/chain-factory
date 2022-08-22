@@ -14,7 +14,7 @@ api = APIRouter()
 user_role = Depends(CheckScope(scope="user"))
 
 
-@api.get('/namespaces', dependencies=[user_role])
+@api.get('/active', dependencies=[user_role])
 async def namespaces(
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
@@ -28,7 +28,7 @@ async def namespaces(
     return namespaces_dicts
 
 
-@api.get('/namespaces/disabled', dependencies=[user_role])
+@api.get('/disabled', dependencies=[user_role])
 async def disabled_namespaces(
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
@@ -42,7 +42,7 @@ async def disabled_namespaces(
     return namespaces_dicts
 
 
-@api.post('/namespace/{namespace}', dependencies=[user_role])
+@api.post('/{namespace}', dependencies=[user_role])
 async def create_namespace(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
@@ -75,7 +75,7 @@ async def create_namespace(
 
 
 @api.put(
-    '/namespace/{namespace}/add_user/{username}',
+    '/{namespace}/add_user/{username}',
     dependencies=[user_role]
 )
 async def allow_user_to_namespace(
@@ -98,7 +98,7 @@ async def allow_user_to_namespace(
 
 
 @api.put(
-    '/namespace/{namespace}/remove_user/{username}',
+    '/{namespace}/remove_user/{username}',
     dependencies=[user_role]
 )
 async def remove_user_from_namespace(
@@ -120,7 +120,7 @@ async def remove_user_from_namespace(
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
-@api.delete('/namespace/{namespace}/disable', dependencies=[user_role])
+@api.delete('/{namespace}/disable', dependencies=[user_role])
 async def disable_namespace(
     namespace: str,
     username: str = Depends(get_username),
@@ -135,7 +135,7 @@ async def disable_namespace(
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
-@api.delete('/namespace/{namespace}/delete', dependencies=[user_role])
+@api.delete('/{namespace}/delete', dependencies=[user_role])
 async def delete_namespace(
     namespace: str,
     username: str = Depends(get_username),
@@ -178,7 +178,7 @@ async def delete_namespace(
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
-@api.put('/namespace/{namespace}/enable', dependencies=[user_role])
+@api.put('/{namespace}/enable', dependencies=[user_role])
 async def enable_namespace(
     namespace: str,
     username: str = Depends(get_username),
@@ -193,7 +193,7 @@ async def enable_namespace(
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
-@api.put('/namespace/{namespace}/rename', dependencies=[user_role])
+@api.put('/{namespace}/rename', dependencies=[user_role])
 async def rename_namespace(
     namespace: str,
     new_namespace: str,
