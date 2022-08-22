@@ -1,13 +1,12 @@
 import { createStyles, makeStyles } from "@material-ui/styles";
 import React, { useEffect } from "react";
-import { PagedWorkflowTasks } from "./models";
 import TaskComponent from "./TaskComponent";
 import uuid from 'react-uuid';
 import { Theme, List, CircularProgress } from "@material-ui/core";
 import { useDispatch, useSelector } from "react-redux";
 import { selectWorkflowPage, selectWorkflowTasks, selectWorkflowTasksCount, selectWorkflowTasksError, selectWorkflowTasksFetching, selectWorkflowTasksPerPage, setWorkflowPage } from "./WorkflowTable.reducer";
 import { RootState } from "../../../store";
-import { fetchWorkflowTasks } from "./WorkflowTable.service";
+import { fetchWorkflowStatus, fetchWorkflowTasks } from "./WorkflowTable.service";
 import { Pagination } from "@material-ui/lab";
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -41,7 +40,7 @@ export default function TaskList(props: TaskListProps) {
   }, [workflowId, dispatch]);
 
   useEffect(() => {
-    //dispatch(fetchWorkflowStatus(namespace, workflowId));
+    dispatch(fetchWorkflowStatus(namespace, workflowId));
     dispatch(fetchWorkflowTasks(namespace, workflowId, searchTerm, workflowPage - 1, tasksPerPage, "created_date", "asc"));
   }, [searchTerm, namespace, workflowId, workflowPage, tasksPerPage, dispatch]);
 
@@ -69,6 +68,7 @@ export default function TaskList(props: TaskListProps) {
             createdDate={task.received_date}
             searchTerm={searchTerm}
             status={task.status || "Pending"}
+            workflowId={workflowId}
           />
         );
       })}

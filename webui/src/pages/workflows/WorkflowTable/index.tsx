@@ -37,10 +37,12 @@ export default function WorkflowTable(props: IProps) {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      dispatch(fetchWorkflowStatus(namespace, workflows.items.map(workflow => workflow.workflowId)));
-    }, 10000);
+      if (expandedRows.length <= 0) {
+        dispatch(fetchWorkflowStatus(namespace, workflows.items.map(workflow => workflow.workflowId)));
+      }
+    }, 5000);
     return () => clearInterval(interval);
-  }, [namespace, workflows, enqueueSnackbar, dispatch]);
+  }, [namespace, workflows, expandedRows, enqueueSnackbar, dispatch]);
 
   const newSnackbar = (text: string, variant: VariantType) => {
     enqueueSnackbar(text, {

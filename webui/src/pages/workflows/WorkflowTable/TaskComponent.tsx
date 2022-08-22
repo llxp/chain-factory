@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { selectNamespace } from "../../core/toolbar/NamespaceSelector/NamespaceSelector.reducer";
 import { getbackgroundColor } from "./utils";
 import { fetchTaskLogs } from "./WorkflowTable.service";
-import { selectTaskLogs, selectTaskLogsError, selectTaskLogsFetching } from "./WorkflowTable.reducer";
+import { selectTaskLogs, selectTaskLogsError, selectTaskLogsFetching, selectWorkflowDetailsOpened } from "./WorkflowTable.reducer";
 import TaskLog from "./TaskLog";
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -17,6 +17,7 @@ const useStyles = makeStyles((theme: Theme) =>
 );
 
 export interface ITaskComponentProps {
+  workflowId: string;
   taskId: string;
   args: any;
   name: string;
@@ -26,7 +27,7 @@ export interface ITaskComponentProps {
 }
 
 export default function TaskComponent(props: ITaskComponentProps) {
-  const {taskId, args, name, createdDate, searchTerm, status} = props;
+  const {taskId, args, name, createdDate, searchTerm, status, workflowId} = props;
   const classes = useStyles();
   const dispatch = useDispatch();
   const namespace = useSelector(selectNamespace);
@@ -36,6 +37,9 @@ export default function TaskComponent(props: ITaskComponentProps) {
   const taskLogs = useSelector(selectTaskLogs);
   const taskLogsFetching = useSelector(selectTaskLogsFetching);
   const taskLogsError = useSelector(selectTaskLogsError);
+  const expandedRows = useSelector(selectWorkflowDetailsOpened);
+  const expanded = expandedRows.findIndex((value: string) => workflowId) !== -1;
+  const currentTaskLogs = taskLogs ? taskLogs[taskId] : null;
 
 
   useEffect(() => {
@@ -43,7 +47,9 @@ export default function TaskComponent(props: ITaskComponentProps) {
       //|| (taskLogs[taskId] && status !== 'RUNNING')) {
       return;
     }
-    dispatch(fetchTaskLogs(namespace, page, rowsPerPage, searchTerm, taskId));
+    if (expanded) {
+      dispatch(fetchTaskLogs(namespace, page, rowsPerPage, searchTerm, taskId));
+    }
     const interval = setInterval(() => {
       if (taskLogsFetching || taskLogsError || !namespace || status !== 'RUNNING') {
         clearInterval(interval);
@@ -52,13 +58,11 @@ export default function TaskComponent(props: ITaskComponentProps) {
       dispatch(fetchTaskLogs(namespace, page, rowsPerPage, searchTerm, taskId));
     }, 5000);
     return () => clearInterval(interval);
-  }, [taskLogsFetching, taskLogsError, namespace, page, rowsPerPage, taskId, searchTerm, status, dispatch]);
+  }, [taskLogsFetching, taskLogsError, namespace, page, rowsPerPage, taskId, searchTerm, status, expanded, dispatch]);
 
   if (taskLogsFetching) {
     return <CircularProgress/>;
   }
-
-  const currentTaskLogs = taskLogs ? taskLogs[taskId] : null;
 
   if (taskLogsError) {
     console.log(taskLogsError);
@@ -74,6 +78,10 @@ export default function TaskComponent(props: ITaskComponentProps) {
   const style={};
   if (status !== undefined && status) {
     style['backgroundColor'] = getbackgroundColor(status);
+  }
+
+  if (!expanded) {
+    return <></>;
   }
 
   return (<div style={{marginBottom: 20}}>
