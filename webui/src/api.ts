@@ -131,31 +131,31 @@ export async function workflowMetrics(namespace: string) {
 }
 
 export async function rotateNamespacePassword(namespace: string) {
-  return axios.post<string | HTTPException>(`/api/v1/namespace/${namespace}/credentials`).then(response => response.data);
+  return axios.post<string | HTTPException>(`/api/v1/namespaces/${namespace}/credentials`).then(response => response.data);
 }
 
 export async function disableNamespace(namespace: string) {
-  return axios.delete<string | HTTPException>(`/api/v1/namespace/${namespace}/disable`).then(response => response.data);
+  return axios.delete<string | HTTPException>(`/api/v1/namespaces/${namespace}/disable`).then(response => response.data);
 }
 
 export async function enableNamespace(namespace: string) {
-  return axios.put<string | HTTPException>(`/api/v1/namespace/${namespace}/enable`).then(response => response.data);
+  return axios.put<string | HTTPException>(`/api/v1/namespaces/${namespace}/enable`).then(response => response.data);
 }
 
 export async function createNamespace(namespace: string) {
-  return axios.post<string | HTTPException>(`/api/v1/namespace/${namespace}`);
+  return axios.post<string | HTTPException>(`/api/v1/namespaces/${namespace}`);
 }
 
 export async function allowUserToNamespace(namespace: string, user: string) {
-  return axios.put<string | HTTPException>(`/api/v1/namespace/${namespace}/add_user`).then(response => response.data);
+  return axios.put<string | HTTPException>(`/api/v1/namespaces/${namespace}/add_user`).then(response => response.data);
 }
 
 export async function removeUserFromNamespace(namespace: string, user: string) {
-  return axios.put<string | HTTPException>(`/api/v1/namespace/${namespace}/remove_user`).then(response => response.data);
+  return axios.put<string | HTTPException>(`/api/v1/namespaces/${namespace}/remove_user`).then(response => response.data);
 }
 
 export async function deleteNamespace(namespace: string) {
-  return axios.delete<string | HTTPException>(`/api/v1/namespace/${namespace}/delete`).then(response => response.data);
+  return axios.delete<string | HTTPException>(`/api/v1/namespaces/${namespace}/delete`).then(response => response.data);
 }
 
 export async function deleteNode(namespace: string, node: string) {
