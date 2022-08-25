@@ -20,3 +20,6 @@ k3s/vault/cert/cert/
 k3s/vault/cert/cert_old/
 k8s/
 scripts/mongodb/
+*.mongodb
+*.pem
+*.key

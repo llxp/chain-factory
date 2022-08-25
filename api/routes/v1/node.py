@@ -21,7 +21,7 @@ user_role = Depends(CheckScope(scope='user'))
 node_admin_role = Depends(CheckScope(scope='node_admin'))
 
 
-@ api.post('/node/{node_name}/stop', dependencies=[node_admin_role])
+@ api.post('/{node_name}/stop', dependencies=[node_admin_role])
 async def stop_node(
     namespace: str,
     node_name: str,

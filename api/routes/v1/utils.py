@@ -28,6 +28,10 @@ def get_page_size(page_size):
     return page_size if page_size > 0 else 1
 
 
+def has_begin_end(begin: str, end: str):
+    return begin is not None and end is not None
+
+
 def skip_stage(page, page_size):
     stage = {}
     if has_pagination(page, page_size):
@@ -39,6 +43,28 @@ def limit_stage(page, page_size):
     stage = {}
     if has_pagination(page, page_size):
         stage["$limit"] = get_page_size(page_size)
+    return stage
+
+
+def begin_end_stage(begin, end, stage={}):
+    if has_begin_end(begin, end):
+        if isinstance(begin, str):
+            begin = int(begin)
+        if isinstance(end, str):
+            end = int(end)
+        begin = datetime.fromtimestamp(begin)
+        end = datetime.fromtimestamp(end)
+        if "$match" not in stage:
+            stage["$match"] = {
+                "$and": []
+            }
+        else:
+            stage["$match"]["$and"].append({
+                'created_date': {
+                    '$gte': begin,
+                    '$lte': end
+                }
+            })
     return stage
 
 

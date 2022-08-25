@@ -10,7 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 from ...auth.depends import CheckScope, get_username
 from .utils import (
-    check_namespace_allowed_even_disabled, get_allowed_namespaces, get_allowed_namespaces_even_disabled,  # noqa: E501
+    begin_end_stage, check_namespace_allowed_even_disabled, get_allowed_namespaces, get_allowed_namespaces_even_disabled,  # noqa: E501
     get_odm_session, match, project, lookup,
     sort_stage, skip_stage, limit_stage,
     lookup_logs, default_namespace, lookup_workflow_status
@@ -34,6 +34,8 @@ async def workflows(
     page_size: Optional[int] = None,
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = None,
+    begin: Optional[str] = None,
+    end: Optional[str] = None,
 ):
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace, True)  # noqa: E501
     namespace_dbs = [db for db in namespace_dbs if db is not None]  # noqa: E501
@@ -53,6 +55,7 @@ async def workflows(
                 },
             ],
         })
+        stage = begin_end_stage(begin, end, stage)
         if search:
             search_splitted = search.split(' ')
             patterns = []
@@ -459,54 +462,53 @@ async def workflow_metrics(
 @api.delete('/{workflow_id}/logs', dependencies=[cleanup_scope])
 async def delete_workflow_logs(
     workflow_id: str,
+    force: bool = Query(False),
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
 ):
     # 1. get all task_ids for this workflow
     # 2. delete all logs for those tasks
-    namespace_dbs = await Namespace.get_namespace_dbs(
-        database, username)
+    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
     if namespace_dbs:
-        collections: List[AsyncIOMotorCollection] = [
-            db.get_collection("task_workflow_association") for db in namespace_dbs  # noqa: E501
+        workflow_status_collections = [
+            db.get_collection("workflow_status") for db in namespace_dbs  # noqa: E501
         ]
-        cursors = [
-            collection.find({'workflow_id': workflow_id}) for collection in collections  # noqa: E501
-        ]
-        tasks_results = [
-            await collection.to_list(None) for collection in cursors
-        ]
-        task_ids = [
-            task['task']['task_id'] for task in tasks_results[0]
-        ]
-        logs_collections = [
-            db.get_collection("logs") for db in namespace_dbs
-        ]
-        task_status_collections = [
-            db.get_collection("task_status") for db in namespace_dbs
-        ]
-        workflow_collections = [
-            db.get_collection("workflow") for db in namespace_dbs
-        ]
-        workflow_existing = await workflow_collections[0].find_one(
-            {'workflow_id': workflow_id})
-        if not workflow_existing:
-            raise HTTPException(status_code=404, detail="Workflow not found")  # noqa: E501
-        for workflow_collection in workflow_collections:
-            await workflow_collection.delete_many({'workflow_id': workflow_id})
-        for collection in collections:
-            await collection.delete_many({
-                'workflow_id': workflow_id
-            })
-        for logs_collection in logs_collections:
-            await logs_collection.delete_many({
-                'task_id': {'$in': task_ids}
-            })
-        for task_status_collection in task_status_collections:
-            await task_status_collection.delete_many({
-                'task_id': {'$in': task_ids}
-            })
-        return {'message': 'logs deleted'}
+        workflow_stopped = await workflow_status_collections[0].find_one({'workflow_id': workflow_id})  # noqa: E501
+        if workflow_stopped or force:
+            collections: List[AsyncIOMotorCollection] = [
+                db.get_collection("task_workflow_association") for db in namespace_dbs  # noqa: E501
+            ]
+            cursors = [
+                collection.find({'workflow_id': workflow_id}) for collection in collections  # noqa: E501
+            ]
+            tasks_results = [
+                await collection.to_list(None) for collection in cursors
+            ]
+            task_ids = [
+                task['task']['task_id'] for task in tasks_results[0]
+            ]
+            logs_collections = [
+                db.get_collection("logs") for db in namespace_dbs
+            ]
+            task_status_collections = [
+                db.get_collection("task_status") for db in namespace_dbs
+            ]
+            workflow_collections = [
+                db.get_collection("workflow") for db in namespace_dbs
+            ]
+            workflow_existing = await workflow_collections[0].find_one({'workflow_id': workflow_id})  # noqa: E501
+            if not workflow_existing:
+                raise HTTPException(status_code=404, detail="Workflow not found")  # noqa: E501
+            for workflow_collection in workflow_collections:
+                await workflow_collection.delete_many({'workflow_id': workflow_id})  # noqa: E501
+            for collection in collections:
+                await collection.delete_many({'workflow_id': workflow_id})
+            for logs_collection in logs_collections:
+                await logs_collection.delete_many({'task_id': {'$in': task_ids}})  # noqa: E501
+            for task_status_collection in task_status_collections:
+                await task_status_collection.delete_many({'task_id': {'$in': task_ids}})  # noqa: E501
+            return {'message': 'logs deleted'}
+        raise HTTPException(status_code=400, detail="Workflow is not stopped yet. Provide query parameter 'force=true' to override this behaviour")  # noqa: E501
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 
@@ -558,6 +560,7 @@ async def workflow_logs(
             }
         }),
     ]
+    info(f"Pipeline: {pipeline}")
     aggregations = [
         doc for collection in collections
         async for doc in collection.aggregate(pipeline)
