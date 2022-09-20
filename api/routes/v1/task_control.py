@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body, HTTPException
-from typing import Optional
+from typing import Optional, Dict, List
 from odmantic import AIOEngine
 
 from .models.namespace import Namespace
@@ -53,42 +53,52 @@ async def new_task(
                 node_tasks_objs = [NodeTasks(**node_task) for node_task in node_tasks]  # noqa: E501
                 input_arguments = new_task.arguments
                 if len(node_tasks_objs) > 0:
+                    missing_arguments_tasks: Dict[str, List[str]] = {}
+                    invalid_arguments_tasks: Dict[str, List[str]] = {}
+                    # iterate over all node/tasks registrations
                     for node_tasks_obj in node_tasks_objs:
                         if node_tasks_obj is not None:
                             tasks = node_tasks_obj.tasks
+                            # iterate over all tasks of each node
                             for task_ in tasks:
                                 if task_.name == task:
                                     arguments_task = task_.arguments
                                     print(arguments_task)
                                     print(input_arguments)
                                     valid_arguments_count = 0
+                                    invalid_arguments = []
                                     # check, if a node is available with the given task name and arguments.  # noqa: E501
                                     for input_argument in input_arguments:
                                         if input_argument in arguments_task.keys():  # noqa: E501
                                             valid_arguments_count += 1
                                             print(f"{input_argument} is valid")  # noqa: E501
                                         else:
-                                            print(f"{input_argument} is not valid")  # noqa: E501
-                                            raise HTTPException(status_code=400, detail={  # noqa: E501
-                                                'message': f"Argument {input_argument} does not exist for task {task}",  # noqa: E501
-                                                'invalid_arguments': [input_argument],  # noqa: E501
-                                            })
+                                            invalid_arguments.append(input_argument)  # noqa: E501
                                     missing_arguments = []
                                     for argument in arguments_task.keys():
                                         if argument not in input_arguments:
                                             print(f"{argument} is not valid")
                                             missing_arguments.append(argument)
-                                    if len(missing_arguments) > 0:
-                                        raise HTTPException(status_code=400, detail={  # noqa: E501
-                                            'message': f"Arguments {missing_arguments} is missing for task {task}",  # noqa: E501
-                                            'missing_arguments': [missing_arguments],  # noqa: E501
-                                        })
                                     if valid_arguments_count == len(input_arguments.keys()) and valid_arguments_count == len(arguments_task):  # noqa: E501
                                         vhost = namespace + '_' + domain_snake_case  # noqa: E501
                                         rabbitmq_client = await get_rabbitmq_client(vhost, namespace, rabbitmq_url)  # noqa: E501
                                         response = await rabbitmq_client.send(new_task.json())  # noqa: E501
                                         if response:
                                             return "Task created"
+                                    else:
+                                        missing_arguments_tasks[node_tasks_obj.node_name] = missing_arguments  # noqa: E501
+                                        invalid_arguments_tasks[node_tasks_obj.node_name] = invalid_arguments  # noqa: E501
+                    if len(missing_arguments_tasks) > 0 or len(invalid_arguments_tasks) > 0:  # noqa: E501
+                        missing_arguments_tasks_str = "".join(
+                            [f"{node_name}.{task}: {', '.join(missing_arguments)}\n" for node_name, missing_arguments in missing_arguments_tasks.items()]  # noqa: E501
+                        )
+                        invalid_arguments_tasks_str = "".join(
+                            [f"{node_name}.{task}: {', '.join(invalid_arguments)}\n" for node_name, invalid_arguments in invalid_arguments_tasks.items()]  # noqa: E501
+                        )
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Missing arguments:\n{missing_arguments_tasks_str}\nInvalid arguments:\n{invalid_arguments_tasks_str}",  # noqa: E501
+                        )
                     raise HTTPException(status_code=400, detail="No node available for the given task")  # noqa: E501
                 raise HTTPException(status_code=404, detail="Task not found")
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501

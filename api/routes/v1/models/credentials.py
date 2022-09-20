@@ -1,6 +1,6 @@
-from http.client import HTTPException
+from fastapi import HTTPException
 from logging import error, info, warning
-from typing import Union
+from typing import Union, Dict
 from datetime import datetime
 # from aioredis import Redis
 from redis import Redis
@@ -21,6 +21,7 @@ class MongoDBCredentials(EmbeddedModel):
     host: str
     port: int
     url: str
+    extra_args: Dict[str, str] = Field(default_factory=dict())
 
     @classmethod
     async def new(
@@ -31,6 +32,7 @@ class MongoDBCredentials(EmbeddedModel):
         email: str,
         host: str,
         port: int,
+        extra_args: Dict[str, str] = dict()
     ) -> 'MongoDBCredentials':
         # create mongodb credentials in the server
         # allow the user to access the namespace
@@ -71,13 +73,15 @@ class MongoDBCredentials(EmbeddedModel):
             print_exc()
             error(e)
             return None
+        extra_args = ("&" + "&".join([f"{k}{v}" for k, v in extra_args.items()])) if extra_args else ""  # noqa: E501
         return cls(
             database=db_name,
             username=username,
             password=password,
             host=host,
             port=port,
-            url=f'mongodb://{username}:{password}@{host}:{port}/{db_name}?readPreference=primaryPreferred'  # noqa: E501
+            extra_args=extra_args,
+            url=f"mongodb://{username}:{password}@{host}:{port}/{db_name}?readPreference=primaryPreferred{extra_args}"  # noqa: E501
         )
 
 
@@ -213,30 +217,19 @@ class ManagementCredentialsCollection(EmbeddedModel):
         email: str,
         mongodb_host: str,
         mongodb_port: int,
+        mongodb_extra_args: dict,
         rabbitmq_host: str,
         rabbitmq_port: int,
         redis_host: str,
         redis_port: int,
     ) -> 'ManagementCredentialsCollection':
         mongodb = await MongoDBCredentials.new(
-            database, namespace, domain, email, mongodb_host, mongodb_port
-        )
+            database, namespace, domain, email, mongodb_host, mongodb_port, extra_args=mongodb_extra_args)  # noqa: E501
         rabbitmq = await RabbitMQCredentials.new(
-            rabbitmq_management_client,
-            namespace,
-            domain,
-            email,
-            rabbitmq_host,
-            rabbitmq_port
-        )
+            rabbitmq_management_client, namespace, domain, email, rabbitmq_host, rabbitmq_port)  # noqa: E501
         redis = await RedisCredentials.new(
-            redis_client, namespace, domain, email, redis_host, redis_port
-        )
-        return cls(
-            mongodb=mongodb,
-            rabbitmq=rabbitmq,
-            redis=redis,
-        )
+            redis_client, namespace, domain, email, redis_host, redis_port)  # noqa: E501
+        return cls(mongodb=mongodb, rabbitmq=rabbitmq, redis=redis)  # noqa: E501
 
 
 class ManagementCredentials(Model):
@@ -248,32 +241,18 @@ class ManagementCredentials(Model):
     @classmethod
     async def new(
         cls: type['ManagementCredentials'],
-        database: AIOEngine,
-        rabbitmq_management_client: ManagementApi,
-        redis_client: Redis,
-        namespace: str,
-        domain: str,
-        email: str,
-        mongodb_host: str,
-        mongodb_port: int,
-        rabbitmq_host: str,
-        rabbitmq_port: int,
-        redis_host: str,
-        redis_port: int,
+        database: AIOEngine, rabbitmq_management_client: ManagementApi, redis_client: Redis,  # noqa: E501
+        namespace: str, domain: str, email: str,
+        mongodb_host: str, mongodb_port: int, mongodb_extra_args: Dict[str, str],  # noqa: E501
+        rabbitmq_host: str, rabbitmq_port: int,
+        redis_host: str, redis_port: int,
     ) -> 'ManagementCredentials':
         credentials_collection = await ManagementCredentialsCollection.new(
-            database,
-            rabbitmq_management_client,
-            redis_client,
-            namespace,
-            domain,
-            email,
-            mongodb_host,
-            mongodb_port,
-            rabbitmq_host,
-            rabbitmq_port,
-            redis_host,
-            redis_port,
+            database, rabbitmq_management_client, redis_client,
+            namespace, domain, email,
+            mongodb_host, mongodb_port, mongodb_extra_args,
+            rabbitmq_host, rabbitmq_port,
+            redis_host, redis_port,
         )
         if (
             credentials_collection.mongodb and
@@ -303,9 +282,7 @@ class ManagementCredentials(Model):
         database: AIOEngine,
         namespace: str,
     ) -> 'ManagementCredentials':
-        return await database.find_one(ManagementCredentials, (
-            (cls.namespace == namespace)
-        ))
+        return await database.find_one(ManagementCredentials, ((cls.namespace == namespace)))  # noqa: E501
 
     @classmethod
     async def delete_one(

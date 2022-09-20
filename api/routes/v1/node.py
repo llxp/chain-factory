@@ -1,6 +1,6 @@
 from logging import info
 from aioredis import Redis
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from odmantic import AIOEngine
 from typing import List
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -88,8 +88,34 @@ async def node_metrics(
             namespace_obj = await Namespace.get(database, node_namespace, username)  # noqa: E501
             if namespace_obj:
                 info(f"Found namespace {namespace_obj.namespace}")
-                domain = namespace_obj.namespace
+                domain = namespace_obj.domain
                 node_status = await node_active(
                     node_name, node_namespace, domain, redis_client)
                 nodes[node_name] = node_status
     return nodes
+
+
+@api.delete('/{node_name}', dependencies=[node_admin_role])
+async def delete_node(
+    node_name: str,
+    namespace: str,
+    database: AIOEngine = Depends(get_odm_session),
+    namespaces: List[Namespace] = Depends(get_allowed_namespaces),
+    username: str = Depends(get_username),
+):
+    namespace_db = await Namespace.get_namespace_db(
+        database, namespace, username, False)
+    if namespace_db is not None:
+        node_tasks_collection = await namespace_db.get_collection("node_tasks")
+        delete_node_query = {'node_name': node_name}
+        deletion_result = await node_tasks_collection.delete_one(delete_node_query)  # noqa: E501
+        info(deletion_result.raw_result)
+        info(deletion_result.deleted_count)
+        if deletion_result.deleted_count == 1:
+            return "Node deleted"
+        if deletion_result.deleted_count > 1:
+            raise HTTPException(
+                status_code=500,
+                detail="Multiple nodes found with the same name")
+        raise HTTPException(status_code=404, detail="Node not found")
+    raise HTTPException(status_code=401, detail=f"Namespace {namespace} not found or not allowed")  # noqa: E501

@@ -44,6 +44,7 @@ async def get_ca_server_certificates():
         return ca_path
     return None
 
+
 def is_https(url: str):
     parsed_url = parse.urlparse(url)
     return parsed_url.scheme == 'https' or not parsed_url.scheme == 'http'
@@ -54,6 +55,7 @@ async def get_https_certificates(url: str, config: IdpDomainConfig):
         return await get_client_certificates(
             config.domain, config.client_cert_config)
     return None
+
 
 async def get_ca_certificates(url: str):
     if url and is_https(url):

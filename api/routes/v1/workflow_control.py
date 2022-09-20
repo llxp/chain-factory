@@ -53,7 +53,7 @@ async def stop_workflow(
                     status='Stopped'
                 ))
                 return "Workflow stopped"
-            return 'Workflow already stopped'
+            raise HTTPException(status_code=400, detail='Workflow already stopped')  # noqa: E501
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
 

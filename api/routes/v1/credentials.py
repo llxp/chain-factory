@@ -14,18 +14,14 @@ from .models.credentials import (
 )
 from .models.namespace import Namespace
 from .settings import (
-    default_mongodb_host, default_mongodb_port,
+    default_mongodb_host, default_mongodb_port, default_mongodb_extra_args,
     default_rabbitmq_host, default_rabbitmq_port,
     default_redis_host, default_redis_port
 )
 
 from .utils import (
-    check_namespace_allowed,
-    decrypt,
-    get_allowed_namespace,
-    get_odm_session,
-    get_rabbitmq_management_api,
-    get_redis_client
+    check_namespace_allowed, decrypt, get_allowed_namespace,
+    get_odm_session, get_rabbitmq_management_api, get_redis_client
 )
 
 from ...auth.depends import CheckScope, get_username
@@ -65,19 +61,13 @@ async def create_credentials(
             info(f"existing credentials for {namespace} deleted")
         else:
             info(f"credentials for namepace {namespace} not found")
+        domain = namespace_obj.domain
         password = await ManagementCredentials.new(
-            database,
-            rabbitmq_management_api,
-            redis_client,
-            namespace,
-            namespace_obj.domain,
-            username,
-            default_mongodb_host,
-            default_mongodb_port,
-            default_rabbitmq_host,
-            default_rabbitmq_port,
-            default_redis_host,
-            default_redis_port,
+            database, rabbitmq_management_api, redis_client,
+            namespace, domain, username,
+            default_mongodb_host, default_mongodb_port, default_mongodb_extra_args,  # noqa: E501
+            default_rabbitmq_host, default_rabbitmq_port,
+            default_redis_host, default_redis_port,
         )
         if password:
             namespace_obj.updated_at = datetime.utcnow()
@@ -118,6 +108,7 @@ async def get_credentials(
         info("credentials found")
         # decrypt the credentials
         try:
+            info(f"key: {key}")
             credentials_data: str = decrypt(credentials.credentials, key)
             credentials_data = ManagementCredentialsCollection.parse_raw(
                 credentials_data)
