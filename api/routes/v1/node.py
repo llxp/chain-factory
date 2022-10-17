@@ -30,10 +30,9 @@ async def stop_node(
     username: str = Depends(get_username),
     namespaces: List[Namespace] = Depends(get_allowed_namespaces),
 ):
-    namespace_dbs = await Namespace.get_namespace_dbs(
-        database, username)
+    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
     collections: List[AsyncIOMotorCollection] = [
-        db.get_collection("node_tasks") for db in namespace_dbs
+        db.get_collection("node_tasks") for ns, db in namespace_dbs.items()
     ]
     find_nodes_query = {'namespace': namespace} if not default_namespace(namespace) else {}  # noqa: E501
     registered_node_tasks_result = [
@@ -69,28 +68,25 @@ async def node_metrics(
     namespaces: List[str] = Depends(get_allowed_namespaces),
     username: str = Depends(get_username),
 ):
-    namespace_dbs = await Namespace.get_namespace_dbs(
-        database, username)
-    collections: List[AsyncIOMotorCollection] = [
-        db.get_collection("node_tasks") for db in namespace_dbs
-    ]
-    find_query = {'namespace': namespace} \
-        if not default_namespace(namespace) else {}
-    registered_tasks_result = [
-        doc for collection in collections
-        async for doc in collection.find(find_query)
-    ]
+    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
+    collections = {
+        ns: db.get_collection("node_tasks") for ns, db in namespace_dbs.items()
+    }
+    registered_tasks_result = {
+        ns: doc for ns, collection in collections.items()
+        async for doc in collection.find()
+        if (ns == namespace or default_namespace(namespace))
+    }
     nodes = dict()
-    for task in registered_tasks_result:
+    for ns, task in registered_tasks_result.items():
         node_name = task['node_name']
-        node_namespace = task['namespace']
         if node_name:
-            namespace_obj = await Namespace.get(database, node_namespace, username)  # noqa: E501
+            namespace_obj = await Namespace.get(database, ns, username)  # noqa: E501
             if namespace_obj:
                 info(f"Found namespace {namespace_obj.namespace}")
                 domain = namespace_obj.domain
                 node_status = await node_active(
-                    node_name, node_namespace, domain, redis_client)
+                    node_name, ns, domain, redis_client)
                 nodes[node_name] = node_status
     return nodes
 
@@ -103,8 +99,7 @@ async def delete_node(
     namespaces: List[Namespace] = Depends(get_allowed_namespaces),
     username: str = Depends(get_username),
 ):
-    namespace_db = await Namespace.get_namespace_db(
-        database, namespace, username, False)
+    namespace_db = await Namespace.get_namespace_db(database, namespace, username, False)  # noqa: E501
     if namespace_db is not None:
         node_tasks_collection = await namespace_db.get_collection("node_tasks")
         delete_node_query = {'node_name': node_name}

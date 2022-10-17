@@ -30,8 +30,7 @@ class IdpDomainConfig(Model):
         database: AIOEngine,
         username: str
     ) -> List['IdpDomainConfig']:
-        print(f"get idp domain config for {username}")
-        debug(f"get idp config for user {username}")
+        debug(f"get idp domain config for user {username}")
         domain = await get_domain(username)
         if domain:
             debug(f"domain: {domain}")

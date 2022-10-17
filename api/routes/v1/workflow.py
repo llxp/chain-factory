@@ -10,10 +10,10 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 
 from ...auth.depends import CheckScope, get_username
 from .utils import (
-    begin_end_stage, check_namespace_allowed_even_disabled, get_allowed_namespaces, get_allowed_namespaces_even_disabled,  # noqa: E501
+    add_fields, begin_end_stage, check_namespace_allowed_even_disabled, get_allowed_namespaces, get_allowed_namespaces_even_disabled,  # noqa: E501
     get_odm_session, match, project, lookup,
     sort_stage, skip_stage, limit_stage,
-    lookup_logs, default_namespace, lookup_workflow_status
+    lookup_logs, lookup_workflow_status
 )
 from .models.namespace import Namespace
 
@@ -38,24 +38,16 @@ async def workflows(
     end: Optional[str] = None,
 ):
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace, True)  # noqa: E501
-    namespace_dbs = [db for db in namespace_dbs if db is not None]  # noqa: E501
+    namespace_dbs_items = namespace_dbs.items()
+    info(namespace_dbs)
+    namespace_dbs = {ns: db for ns, db in namespace_dbs_items if db is not None}  # noqa: E501
 
     if not namespace_dbs or namespace_dbs is None:
         raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
     def search_stage():
         stages = []
-        stage = match({
-            '$and': [
-                {
-                    "workflow.namespace": {
-                        '$exists': 'true',
-                        '$nin': ["", 'null']
-                    },
-                },
-            ],
-        })
-        stage = begin_end_stage(begin, end, stage)
+        stage = begin_end_stage(begin, end, {})  # stage
         if search:
             search_splitted = search.split(' ')
             patterns = []
@@ -70,7 +62,7 @@ async def workflows(
             operators = {
                 'name': {'type': 'str', 'key': 'tasks.name'},
                 'tags': {'type': 'list', 'key': 'tasks.tags'},
-                'namespace': {'type': 'str', 'key': 'workflow.namespace'},
+                # 'namespace': {'type': 'str', 'key': 'workflow.namespace'},
                 'date': {'type': 'str', 'key': 'created_date'},
                 'arguments': {'type': 'dict', 'key': 'tasks.arguments'},
                 'logs': {'type': 'logs', 'key': 'logs.log_line'}
@@ -161,106 +153,113 @@ async def workflows(
             limit_stage(0, 100)
         ]
 
-    pipeline = [
-        stage for stage in [
-            {
-                '$group': {
-                    '_id': {'workflow_id': '$workflow_id'},
-                    'workflow': {
-                        '$addToSet': {
-                            'workflow_id': '$workflow_id',
-                            'namespace': '$namespace',
-                            'tags': '$tags',
+    pipelines = {
+        ns: [
+            stage for stage in [
+                {
+                    '$group': {
+                        '_id': {'workflow_id': '$workflow_id'},
+                        'workflow': {
+                            '$addToSet': {
+                                'workflow_id': '$workflow_id',
+                                # 'namespace': '$namespace',
+                                'tags': '$tags',
+                            },
                         },
-                    },
-                    'created_dates': {
-                        '$push': '$created_date'
+                        'created_dates': {
+                            '$push': '$created_date'
+                        }
                     }
-                }
-            },
-            lookup(
-                'task_workflow_association',
-                '_id.workflow_id',
-                'workflow_id',
-                'tasks'
-            ),
-            project({
-                '_id': 0,
-                'tasks._id': 0,
-                'tasks.task.workflow_id': 0,
-                'tasks.workflow_id': 0,
-                'tasks.node_name': 0
-            }),
-            project({
-                'tasks': '$tasks.task',
-                'workflow': {
-                    '$arrayElemAt': ['$workflow', 0]
                 },
-                'created_date': {
-                    '$arrayElemAt': ['$created_dates', 0]
-                }
-            }),
-            *search_stage(),
-            project({
-                'entry_task': {
-                    '$arrayElemAt': ['$tasks', 0]
-                },
-                'workflow': 1,
-                'created_date': 1,
-            }),
-            lookup_workflow_status('workflow.workflow_id', 'status'),
-            project({
-                'entry_task': 1,
-                'workflow': 1,
-                'created_date': 1,
-                'status': {
-                    '$ifNull': [
-                        {'$arrayElemAt': ['$status.status', 0]},
-                        'Running'
-                    ]
-                },
-            }),
-            project({'status._id': 0, 'entry_task.id': 0}),
-            {
-                "$facet": {
-                    "workflows": check_empty([
-                        stage2
-                        for stage2 in [
-                            sort_stage(sort_by, sort_order),
-                            skip_stage(page, page_size),
-                            limit_stage(page, page_size)
+                lookup(
+                    'task_workflow_association',
+                    '_id.workflow_id',
+                    'workflow_id',
+                    'tasks'
+                ),
+                project({
+                    '_id': 0,
+                    'tasks._id': 0,
+                    'tasks.task.workflow_id': 0,
+                    'tasks.workflow_id': 0,
+                    'tasks.node_name': 0
+                }),
+                project({
+                    'tasks': '$tasks.task',
+                    'workflow': {
+                        '$arrayElemAt': ['$workflow', 0]
+                    },
+                    'created_date': {
+                        '$arrayElemAt': ['$created_dates', 0]
+                    }
+                }),
+                *search_stage(),
+                project({
+                    'entry_task': {
+                        '$arrayElemAt': ['$tasks', 0]
+                    },
+                    'workflow': 1,
+                    'created_date': 1,
+                }),
+                lookup_workflow_status('workflow.workflow_id', 'status'),
+                project({
+                    'entry_task': 1,
+                    'workflow': 1,
+                    'created_date': 1,
+                    'status': {
+                        '$ifNull': [
+                            {'$arrayElemAt': ['$status.status', 0]},
+                            'Running'
                         ]
-                        if stage2 != {}
-                    ]),
-                    "total_count": [{"$count": "count"}],
-                }
-            },
-            project({
-                "workflows": 1,
-                "total_count": {
-                    '$ifNull': [{
-                        "$arrayElemAt": ["$total_count.count", 0]
-                    }, 0]
+                    },
+                }),
+                project({'status._id': 0, 'entry_task.id': 0}),
+                add_fields({'workflow.namespace': ns}),
+                {
+                    "$facet": {
+                        "workflows": check_empty([
+                            stage2
+                            for stage2 in [
+                                sort_stage(sort_by, sort_order),
+                                skip_stage(page, page_size),
+                                limit_stage(page, page_size)
+                            ]
+                            if stage2 != {}
+                        ]),
+                        "total_count": [{"$count": "count"}],
+                    }
                 },
-                'count': {'$size': '$workflows'}
-            })
-        ] if stage != {}
-    ]
+                project({
+                    "workflows": 1,
+                    "total_count": {
+                        '$ifNull': [{
+                            "$arrayElemAt": ["$total_count.count", 0]
+                        }, 0]
+                    },
+                    'count': {'$size': '$workflows'}
+                })
+            ] if stage != {}
+        ]
+        for ns, _ in namespace_dbs_items
+    }
 
-    info('Pipeline: {}'.format(pipeline))
+    info('Pipeline: {}'.format(pipelines))
     info(namespace_dbs)
-    info(f"Namespace DBs: {[db.name for db in namespace_dbs if db is not None]}")  # noqa: E501
+    info(f"Namespace DBs: {[db.name for ns, db in namespace_dbs_items if db is not None]}")  # noqa: E501
 
-    collections: List[AsyncIOMotorCollection] = [
-        db.get_collection("workflow") for db in namespace_dbs
-    ]
-    # workflow_tasks = collection.aggregate(pipeline)
+    collections = {
+        ns: db.get_collection("workflow") for ns, db in namespace_dbs_items
+    }
     aggregations = [
-        doc for collection in collections
-        async for doc in collection.aggregate(pipeline)
+        doc for ns, collection in collections.items()
+        async for doc in collection.aggregate(pipelines[ns])
     ]
-    print(aggregations)
-    return aggregations[0]
+    result = dict(
+        workflows=[workflow for aggregation in aggregations for workflow in aggregation["workflows"]],  # noqa: E501
+        total_count=sum(aggregation["total_count"] for aggregation in aggregations),  # noqa: E501
+        count=sum(aggregation["count"] for aggregation in aggregations)  # noqa: E501
+    )
+    return result
 
 
 @api.get(
@@ -326,10 +325,7 @@ async def workflow_status(
             }
         return stage
 
-    collections = [
-        db.get_collection("workflow_status")
-        for db in namespace_dbs
-    ]
+    collections = [db.get_collection("workflow_status") for ns, db in namespace_dbs.items()]  # noqa: E501
     pipeline = [
         match_stage(),
         lookup_workflow_status('workflow_id', 'workflow_status'),
@@ -411,15 +407,15 @@ async def workflow_metrics(
     username: str = Depends(get_username),
 ):
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
-    collections = [db.get_collection("workflow") for db in namespace_dbs]
+    collections = {ns: db.get_collection("workflow") for ns, db in namespace_dbs.items()}  # noqa: E501
 
-    def match_stage():
-        stage = match({})
-        if not default_namespace(namespace):
-            stage['$match']['namespace'] = namespace
-        return stage
+    # def match_stage():
+    #     stage = match({})
+    #     if not default_namespace(namespace):
+    #         stage['$match']['namespace'] = namespace
+    #     return stage
     pipeline = [
-        match_stage(),
+        # match_stage(),
         lookup_workflow_status('workflow_id', 'workflow_status'),
         project({
             'status': {
@@ -451,12 +447,11 @@ async def workflow_metrics(
         })
     ]
     aggregations = [
-        doc for collection in collections
+        doc for ns, collection in collections.items()
         async for doc in collection.aggregate(pipeline)
+        if (ns == namespace and namespace != 'default') or (namespace == 'default')  # noqa: E501
     ]
-    # results = dict(ChainMap(*aggregations))
-    results = aggregations
-    return results
+    return aggregations
 
 
 @api.delete('/{workflow_id}/logs', dependencies=[cleanup_scope])
@@ -470,10 +465,12 @@ async def delete_workflow_logs(
     # 2. delete all logs for those tasks
     namespace_dbs = await Namespace.get_namespace_dbs(database, username)
     if namespace_dbs:
+        # get workflow status collections
         workflow_status_collections = [
-            db.get_collection("workflow_status") for db in namespace_dbs  # noqa: E501
+            db.get_collection("workflow_status") for ns, db in namespace_dbs.items()  # noqa: E501
         ]
         workflow_stopped = await workflow_status_collections[0].find_one({'workflow_id': workflow_id})  # noqa: E501
+        # only delete logs if workflow is stopped
         if workflow_stopped or force:
             collections: List[AsyncIOMotorCollection] = [
                 db.get_collection("task_workflow_association") for db in namespace_dbs  # noqa: E501
@@ -507,6 +504,8 @@ async def delete_workflow_logs(
                 await logs_collection.delete_many({'task_id': {'$in': task_ids}})  # noqa: E501
             for task_status_collection in task_status_collections:
                 await task_status_collection.delete_many({'task_id': {'$in': task_ids}})  # noqa: E501
+            for workflow_status_collection in workflow_status_collections:
+                await workflow_status_collection.delete_many({'workflow_id': workflow_id})  # noqa: E501
             return {'message': 'logs deleted'}
         raise HTTPException(status_code=400, detail="Workflow is not stopped yet. Provide query parameter 'force=true' to override this behaviour")  # noqa: E501
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
@@ -521,11 +520,8 @@ async def workflow_logs(
     namespaces: List[str] = Depends(get_allowed_namespaces),
     username: str = Depends(get_username),
 ):
-    namespace_dbs = await Namespace.get_namespace_dbs(
-        database, username)
-    collections: List[AsyncIOMotorCollection] = [
-        db.get_collection("task_workflow_association") for db in namespace_dbs
-    ]
+    namespace_dbs = await Namespace.get_namespace_dbs(database, username)
+    collections: List[AsyncIOMotorCollection] = [db.get_collection("task_workflow_association") for db in namespace_dbs.items()]  # noqa: E501
     pipeline = [
         lookup_logs('task.task_id', 'logs'),
         project({

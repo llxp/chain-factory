@@ -1,6 +1,6 @@
 from logging import info
 from datetime import datetime
-from typing import List
+from typing import Dict, List
 from odmantic import AIOEngine, Model
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -139,17 +139,17 @@ class Namespace(Model):
         cls,
         database: AIOEngine,
         username: str
-    ) -> List[AsyncIOMotorDatabase]:
+    ) -> Dict[str, AsyncIOMotorDatabase]:
         namespaces = await cls.get_multiple(database, username)
         namespace_names = [ns.namespace for ns in namespaces]
         info(f"User {username} has access to {', '.join(namespace_names)}")
         if namespaces:
-            return [
-                await cls.get_namespace_db(
-                    database, namespace.namespace, username)
-                for namespace in namespaces
-            ]
-        return []
+            return {
+                ns.namespace: await cls.get_namespace_db(
+                    database, ns.namespace, username)
+                for ns in namespaces
+            }
+        return {}
 
     @classmethod
     async def get_filtered_namespace_dbs(
@@ -158,15 +158,15 @@ class Namespace(Model):
         username: str,
         namespace: str,
         include_disabled: bool = False
-    ) -> List[AsyncIOMotorDatabase]:
+    ) -> Dict[str, AsyncIOMotorDatabase]:
         if include_disabled:
             namespaces = await cls.get_multiple_disabled(database, username)
         else:
             namespaces = await cls.get_multiple(database, username)
         if namespaces:
-            return [
-                await cls.get_namespace_db(
+            return {
+                ns.namespace: await cls.get_namespace_db(
                     database, ns.namespace, username, include_disabled)
                 for ns in namespaces if namespace in ["default", "all"] or ns.namespace == namespace  # noqa: E501
-            ]
-        return []
+            }
+        return {}

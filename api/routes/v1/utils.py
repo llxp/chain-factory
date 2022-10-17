@@ -16,6 +16,9 @@ from ...auth.depends import get_username
 from .models.namespace import Namespace
 
 
+rabbitmq_connection_pool = {}
+
+
 def default_namespace(namespace):
     return namespace == "default" or namespace == "all"
 
@@ -74,7 +77,7 @@ def sort_stage(sort_by, sort_order):
         'created_date',
         'entry_task.name',
         'workflow.workflow_id',
-        'workflow.namespace',
+        # 'workflow.namespace',
         'workflow.tags'
     ]
     if sort_by in sortable_fields and sort_order in ["asc", "desc"]:
@@ -162,7 +165,7 @@ async def node_active(
     return False
 
 
-async def get_rabbitmq_client(vhost: str, namespace: str, rabbitmq_url: str):
+async def get_rabbitmq_client(vhost: str, rabbitmq_url: str):
     if len(rabbitmq_url) > 0 and len(vhost) > 0:
         if vhost.startswith("/"):
             vhost = vhost[1:]
@@ -174,13 +177,15 @@ async def get_rabbitmq_client(vhost: str, namespace: str, rabbitmq_url: str):
         url = rabbitmq_url
     debug("Getting rabbitmq client for vhost: " + vhost)
     debug(f"final rabbitmq url: {url}")
-    client = RabbitMQ(
-        url=url,
-        queue_name=namespace + "_task_queue",
-        rmq_type="publisher",
-    )
-    await client.init()
-    return client
+    if rabbitmq_connection_pool.get(url) is None:
+        client = RabbitMQ(
+            url=url,
+            queue_name="it_queue",
+            rmq_type="publisher",
+        )
+        await client.init()
+        rabbitmq_connection_pool[url] = client
+    return rabbitmq_connection_pool[url]
 
 
 async def get_odm_session(request: Request):

@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from odmantic import AIOEngine
 from framework.src.chain_factory.task_queue.common.settings import (
@@ -10,11 +11,13 @@ from framework.src.chain_factory.task_queue.models.mongodb_models import (
     Task,
     TaskWorkflowAssociation
 )
+from pymongo.results import InsertOneResult
 from framework.src.chain_factory.task_queue.wrapper.\
     redis_client import RedisClient
 from ...auth.depends import CheckScope
 from .utils import get_allowed_namespace, get_odm_session, get_redis_client, get_username, get_rabbitmq_url, get_rabbitmq_client  # noqa: E501
 from .models.namespace import Namespace
+from .models.workflow import Workflow
 
 
 api = APIRouter()
@@ -142,13 +145,33 @@ async def restart_workflow(
                         domain = namespace_obj.domain
                         domain_snake_case = domain.replace('.', '_')
                         vhost = namespace + '_' + domain_snake_case  # noqa: E501
-                        rabbitmq_client = await get_rabbitmq_client(vhost, namespace, rabbitmq_url)  # noqa: E501
+                        rabbitmq_client = await get_rabbitmq_client(vhost, rabbitmq_url)  # noqa: E501
+
+                        new_workflow = Workflow(
+                            created_date=datetime.utcnow(),
+                            tags=first_task_obj.task.tags,
+                        )
+                        wf_saved: InsertOneResult = await namespace_db.get_collection(Workflow.__collection__).insert_one(dict(new_workflow))  # noqa: E501
                         new_task: Task = Task(
                             name=first_task_obj.task.name,
                             arguments=first_task_obj.task.arguments,
                             node_names=first_task_obj.task.node_names,
                             tags=first_task_obj.task.tags,
+                            workflow_id=str(wf_saved.inserted_id),  # noqa: E501
                         )
+                        # update workflow with workflow id
+                        await namespace_db.get_collection(Workflow.__collection__).update_one(  # noqa: E501
+                            {"_id": wf_saved.inserted_id},
+                            {"$set": dict(workflow_id=str(wf_saved.inserted_id))},  # noqa: E501
+                        )
+                        del new_task.task_id
+
+                        # new_task: Task = Task(
+                        #     name=first_task_obj.task.name,
+                        #     arguments=first_task_obj.task.arguments,
+                        #     node_names=first_task_obj.task.node_names,
+                        #     tags=first_task_obj.task.tags,
+                        # )
                         response = await rabbitmq_client.send(new_task.json())  # noqa: E501
                         if response:
                             return "Workflow restarted"

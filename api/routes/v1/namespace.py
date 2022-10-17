@@ -12,6 +12,7 @@ from ...auth.utils.credentials import get_domain
 
 api = APIRouter()
 user_role = Depends(CheckScope(scope="user"))
+namespace_admin_role = Depends(CheckScope(scope="namespace_admin"))
 
 
 @api.get('/active', dependencies=[user_role])

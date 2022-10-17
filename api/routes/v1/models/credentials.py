@@ -73,7 +73,7 @@ class MongoDBCredentials(EmbeddedModel):
             print_exc()
             error(e)
             return None
-        extra_args = ("&" + "&".join([f"{k}{v}" for k, v in extra_args.items()])) if extra_args else ""  # noqa: E501
+        extra_args_str = ("?" + "&".join([f"{k}={v}" for k, v in extra_args.items()])) if extra_args else ""  # noqa: E501
         return cls(
             database=db_name,
             username=username,
@@ -81,7 +81,7 @@ class MongoDBCredentials(EmbeddedModel):
             host=host,
             port=port,
             extra_args=extra_args,
-            url=f"mongodb://{username}:{password}@{host}:{port}/{db_name}?readPreference=primaryPreferred{extra_args}"  # noqa: E501
+            url=f"mongodb://{username}:{password}@{host}:{port}/{db_name}{extra_args_str}"  # noqa: E501
         )
 
 
@@ -188,6 +188,7 @@ class RedisCredentials(EmbeddedModel):
                 '+subscribe',
                 '+unsubscribe',
                 '+publish',
+                '+ping',
             ],
         ):
             raise HTTPException(status_code=500, detail="failed to set redis acl")  # noqa: E501

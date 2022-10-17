@@ -176,7 +176,7 @@ rabbitmq_management_api = ManagementApi(
 )
 
 # initialize database connection
-motor_client = AsyncIOMotorClient(mongodb_url)
+motor_client = AsyncIOMotorClient(mongodb_url, serverSelectionTimeoutMS=3000, connectTimeoutMS=3000, socketTimeoutMS=3000)  # noqa: E501
 odm_session = AIOEngine(motor_client=motor_client, database=mongodb_database)
 
 # initialize redis client

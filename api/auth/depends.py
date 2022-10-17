@@ -35,7 +35,7 @@ class HTTPBearer(HTTPBase):
     ) -> Optional[HTTPAuthorizationCredentials]:
         authorization: str = request.headers.get("Authorization")
         if not authorization:
-            print(request.cookies)
+            # print(request.cookies)
             cookie = request.cookies.get("Authorization")
             if (cookie is not None) and cookie.startswith("Bearer "):
                 authorization = cookie

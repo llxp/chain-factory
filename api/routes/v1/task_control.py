@@ -1,6 +1,11 @@
+from datetime import datetime
+from logging import getLogger
 from fastapi import APIRouter, Depends, Body, HTTPException
 from typing import Optional, Dict, List
 from odmantic import AIOEngine
+from pymongo.results import InsertOneResult
+
+from .models.workflow import Workflow
 
 from .models.namespace import Namespace
 
@@ -11,6 +16,7 @@ from .utils import (
 from .models.task import NewTaskRequest
 from framework.src.chain_factory.task_queue.models.mongodb_models import NodeTasks, Task  # noqa: E501
 
+LOGGER = getLogger(__name__)
 
 api = APIRouter()
 user_role = Depends(CheckScope(scope='user'))
@@ -23,20 +29,17 @@ user_role = Depends(CheckScope(scope='user'))
 async def new_task(
     namespace: str,
     task: str,
-    node_name: Optional[str] = None,
+    # node_name: Optional[str] = None,
     json_body: Optional[NewTaskRequest] = Body(...),
     username: str = Depends(get_username),
     rabbitmq_url: str = Depends(get_rabbitmq_url),
     database: AIOEngine = Depends(get_odm_session),
 ):
-    new_task: Task = Task(
-        name=task,
-        arguments=json_body.arguments,
-        node_names=[node_name] if (
-            node_name and node_name != 'default') else [],
-        tags=json_body.tags,
-    )
+    name = task
+    arguments = json_body.arguments
+    tags = json_body.tags
     namespace_entry = await Namespace.get(database, namespace, username)
+    LOGGER.info(f"namespace_entry: {namespace_entry}")
     if namespace_entry:
         domain = namespace_entry.domain
         domain_snake_case = domain.replace('.', '_')
@@ -46,12 +49,12 @@ async def new_task(
             if node_tasks_collection is not None:
                 node_tasks = await node_tasks_collection.find(
                     {
-                        "namespace": namespace,
+                        # "namespace": namespace,
                         "tasks.name": {'$in': [task]},
                     }
                 ).to_list(None)
                 node_tasks_objs = [NodeTasks(**node_task) for node_task in node_tasks]  # noqa: E501
-                input_arguments = new_task.arguments
+                input_arguments = arguments
                 if len(node_tasks_objs) > 0:
                     missing_arguments_tasks: Dict[str, List[str]] = {}
                     invalid_arguments_tasks: Dict[str, List[str]] = {}
@@ -63,25 +66,40 @@ async def new_task(
                             for task_ in tasks:
                                 if task_.name == task:
                                     arguments_task = task_.arguments
-                                    print(arguments_task)
-                                    print(input_arguments)
                                     valid_arguments_count = 0
                                     invalid_arguments = []
                                     # check, if a node is available with the given task name and arguments.  # noqa: E501
                                     for input_argument in input_arguments:
                                         if input_argument in arguments_task.keys():  # noqa: E501
                                             valid_arguments_count += 1
-                                            print(f"{input_argument} is valid")  # noqa: E501
+                                            LOGGER.debug(f"{input_argument} is valid")  # noqa: E501
                                         else:
                                             invalid_arguments.append(input_argument)  # noqa: E501
                                     missing_arguments = []
                                     for argument in arguments_task.keys():
                                         if argument not in input_arguments:
-                                            print(f"{argument} is not valid")
+                                            LOGGER.debug(f"{argument} is not in {input_arguments}")  # noqa: E501
                                             missing_arguments.append(argument)
                                     if valid_arguments_count == len(input_arguments.keys()) and valid_arguments_count == len(arguments_task):  # noqa: E501
                                         vhost = namespace + '_' + domain_snake_case  # noqa: E501
-                                        rabbitmq_client = await get_rabbitmq_client(vhost, namespace, rabbitmq_url)  # noqa: E501
+                                        rabbitmq_client = await get_rabbitmq_client(vhost, rabbitmq_url)  # noqa: E501
+                                        new_workflow = Workflow(
+                                            created_date=datetime.utcnow(),
+                                            tags=tags,
+                                        )
+                                        wf_saved: InsertOneResult = await namespace_db.get_collection(Workflow.__collection__).insert_one(dict(new_workflow))  # noqa: E501
+                                        new_task: Task = Task(
+                                            name=name,
+                                            arguments=arguments,
+                                            tags=json_body.tags,
+                                            workflow_id=str(wf_saved.inserted_id),  # noqa: E501
+                                        )
+                                        # update workflow with workflow id
+                                        await namespace_db.get_collection(Workflow.__collection__).update_one(  # noqa: E501
+                                            {"_id": wf_saved.inserted_id},
+                                            {"$set": dict(workflow_id=str(wf_saved.inserted_id))},  # noqa: E501
+                                        )
+                                        del new_task.task_id
                                         response = await rabbitmq_client.send(new_task.json())  # noqa: E501
                                         if response:
                                             return "Task created"
