@@ -1,4 +1,4 @@
-from aioredis import Redis
+from redis import Redis
 from bson.regex import Regex
 from fastapi import APIRouter, Depends
 from typing import Optional, List, Dict

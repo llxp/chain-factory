@@ -38,6 +38,7 @@ export default function WorkflowTable(props: IProps) {
   useEffect(() => {
     const interval = setInterval(() => {
       if (expandedRows.length <= 0) {
+        console.log("namespace: ", namespace);
         dispatch(fetchWorkflowStatus(namespace, workflows.items.map(workflow => workflow.workflowId)));
       }
     }, 5000);
@@ -61,11 +62,14 @@ export default function WorkflowTable(props: IProps) {
   const handleSelectedAction = (action: string) => {
     for (const selectedWorkflow of selectedWorkflows) {
       const workflow = workflows.items.find((workflow) => {
-        const key = workflow.namespace + workflow.workflowId + workflow.createdDate + workflow.entryTask;
+        const key = workflow.key;
         return selectedWorkflow === key;
       });
+      console.log("workflows: ", workflows);
+      console.log("workflow: ", workflow);
+      console.log("selectedWorkflow: ", selectedWorkflow);
       if (workflow && workflow.status.toUpperCase() === "RUNNING") {
-        handleAction(action)(workflow?.workflowId, workflow?.namespace);
+        handleAction(action)(workflow.workflowId, workflow.namespace);
       }
     }
   };

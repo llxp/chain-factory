@@ -1,6 +1,5 @@
 import { Button, Grid, Hidden, TextField } from '@material-ui/core';
 import React, { useState } from 'react';
-import Combobox from '../../../components/Combobox';
 
 const FormComponent = ({children}) => <form noValidate autoComplete="off">{children}</form>;
 const TextFieldComponent = ({label, value, onChange}) => <><TextField label={label} value={value} onChange={onChange}/><br/></>;
@@ -12,7 +11,6 @@ export interface ITaskSubTableProps {
     (
       task: string,
       selectedArguments: Map<string, string>,
-      nodeSelection: string,
       tags: string[],
       namespace: string
     ): void;
@@ -24,7 +22,6 @@ export interface ITaskSubTableProps {
 export function TaskSubTable(props: ITaskSubTableProps) {
 
   const [selectedArguments, setSelectedArguments] = useState<any>(props.arguments);
-  const [selectedNode, setSelectedNode] = useState<string>("default");
   const [tags, setTags] = useState<string[]>([]);
 
   const gridStyle = {
@@ -48,12 +45,7 @@ export function TaskSubTable(props: ITaskSubTableProps) {
 
   const handleStart = (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
     event.stopPropagation();
-    props.handleStart?.(props.task, selectedArguments, selectedNode, tags ? tags : [], props.namespace);
-  };
-
-  const handleNodeChange = (event: any, newValue: string | null) => {
-    event.stopPropagation();
-    setSelectedNode(newValue ? newValue : "");
+    props.handleStart?.(props.task, selectedArguments, tags ? tags : [], props.namespace);
   };
   
   return (
@@ -62,8 +54,7 @@ export function TaskSubTable(props: ITaskSubTableProps) {
         <Hidden xsDown>
           <Grid item md={3} xs={false}>
             <h2>Input Parameter:</h2>
-            <p>1. Please fill out the input parameters.</p>
-            <p>2. (optional) select node to run on.</p>
+            <p>1. Please fill out the input parameters (if any).</p>
             <p>3. (optional) specify tags to use for the task run.</p>
             <p>4. Press on Start to start the task.</p>
           </Grid>
@@ -73,13 +64,6 @@ export function TaskSubTable(props: ITaskSubTableProps) {
           <FormComponent>
             {formElements}
             <br/>
-            <Hidden smUp><h2>(Optional) Node Selection:</h2></Hidden>
-            <Combobox label="Run on specific node" key="node_selection" options={props.nodeNames.map((option) => {
-              return {
-                display: option,
-                value: option,
-              }
-            })} handleChange={handleNodeChange}/>
             <Hidden smUp><h2>(Optional) Tags:</h2></Hidden>
             <TextFieldComponent key="tags" label="Tags" value={tags} onChange={(event) => {handleTagsChange(event.target.value);}}/>
             <br/><Button variant="contained" color="primary" onClick={handleStart}>Start</Button>

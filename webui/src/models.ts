@@ -30,3 +30,9 @@ export function IsHTTPException(o: any): o is HTTPException {
   }
   return false;
 }
+
+export interface NodeMetricsResponse {
+  node_name: string;
+  namespace: string;
+  active: boolean;
+}

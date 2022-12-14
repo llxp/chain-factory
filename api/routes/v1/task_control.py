@@ -1,3 +1,4 @@
+from asyncio import sleep
 from datetime import datetime
 from logging import getLogger
 from fastapi import APIRouter, Depends, Body, HTTPException
@@ -28,16 +29,18 @@ user_role = Depends(CheckScope(scope='user'))
 )
 async def new_task(
     namespace: str,
-    task: str,
+    task_name: str,
     # node_name: Optional[str] = None,
     json_body: Optional[NewTaskRequest] = Body(...),
     username: str = Depends(get_username),
     rabbitmq_url: str = Depends(get_rabbitmq_url),
     database: AIOEngine = Depends(get_odm_session),
 ):
-    name = task
-    arguments = json_body.arguments
+    LOGGER.debug(f"New task: {task_name}")
+    input_arguments = json_body.arguments
+    LOGGER.debug(f"Arguments: {input_arguments}")
     tags = json_body.tags
+    LOGGER.debug(f"Tags: {tags}")
     namespace_entry = await Namespace.get(database, namespace, username)
     LOGGER.info(f"namespace_entry: {namespace_entry}")
     if namespace_entry:
@@ -50,11 +53,10 @@ async def new_task(
                 node_tasks = await node_tasks_collection.find(
                     {
                         # "namespace": namespace,
-                        "tasks.name": {'$in': [task]},
+                        "tasks.name": {'$in': [task_name]},
                     }
                 ).to_list(None)
                 node_tasks_objs = [NodeTasks(**node_task) for node_task in node_tasks]  # noqa: E501
-                input_arguments = arguments
                 if len(node_tasks_objs) > 0:
                     missing_arguments_tasks: Dict[str, List[str]] = {}
                     invalid_arguments_tasks: Dict[str, List[str]] = {}
@@ -64,7 +66,7 @@ async def new_task(
                             tasks = node_tasks_obj.tasks
                             # iterate over all tasks of each node
                             for task_ in tasks:
-                                if task_.name == task:
+                                if task_.name == task_name:
                                     arguments_task = task_.arguments
                                     valid_arguments_count = 0
                                     invalid_arguments = []
@@ -89,8 +91,8 @@ async def new_task(
                                         )
                                         wf_saved: InsertOneResult = await namespace_db.get_collection(Workflow.__collection__).insert_one(dict(new_workflow))  # noqa: E501
                                         new_task: Task = Task(
-                                            name=name,
-                                            arguments=arguments,
+                                            name=task_name,
+                                            arguments=input_arguments,
                                             tags=json_body.tags,
                                             workflow_id=str(wf_saved.inserted_id),  # noqa: E501
                                         )
@@ -100,18 +102,23 @@ async def new_task(
                                             {"$set": dict(workflow_id=str(wf_saved.inserted_id))},  # noqa: E501
                                         )
                                         del new_task.task_id
-                                        response = await rabbitmq_client.send(new_task.json())  # noqa: E501
-                                        if response:
-                                            return "Task created"
+                                        for _ in range(0, 10):
+                                            response = await rabbitmq_client.send(new_task.json())  # noqa: E501
+                                            LOGGER.debug(f"Response: {response}")  # noqa: E501
+                                            if response:
+                                                return "Task created"
+                                            else:
+                                                await sleep(100)
+                                        raise HTTPException(status_code=500, detail="Task could not be created. Probably an error reaching the broker. Please try again.")  # noqa: E501
                                     else:
                                         missing_arguments_tasks[node_tasks_obj.node_name] = missing_arguments  # noqa: E501
                                         invalid_arguments_tasks[node_tasks_obj.node_name] = invalid_arguments  # noqa: E501
                     if len(missing_arguments_tasks) > 0 or len(invalid_arguments_tasks) > 0:  # noqa: E501
                         missing_arguments_tasks_str = "".join(
-                            [f"{node_name}.{task}: {', '.join(missing_arguments)}\n" for node_name, missing_arguments in missing_arguments_tasks.items()]  # noqa: E501
+                            [f"{node_name}.{task_name}: {', '.join(missing_arguments)}\n" for node_name, missing_arguments in missing_arguments_tasks.items()]  # noqa: E501
                         )
                         invalid_arguments_tasks_str = "".join(
-                            [f"{node_name}.{task}: {', '.join(invalid_arguments)}\n" for node_name, invalid_arguments in invalid_arguments_tasks.items()]  # noqa: E501
+                            [f"{node_name}.{task_name}: {', '.join(invalid_arguments)}\n" for node_name, invalid_arguments in invalid_arguments_tasks.items()]  # noqa: E501
                         )
                         raise HTTPException(
                             status_code=400,

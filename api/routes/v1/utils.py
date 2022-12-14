@@ -2,6 +2,7 @@ from distutils.log import debug
 from logging import info
 from fastapi import HTTPException
 from redis import Redis
+from redis_sentinel_url import connect as rsu_connect
 from fastapi import Request, Depends
 from datetime import datetime
 from cryptography.fernet import Fernet
@@ -158,14 +159,20 @@ async def node_active(
             heartbeat_status: Heartbeat = Heartbeat.parse_raw(
                 node_status_string)
             last_time_seen = heartbeat_status.last_time_seen
+            info(f"last_time_seen: {last_time_seen}")
             now = datetime.utcnow()
+            info(f"now: {now}")
             diff = now - last_time_seen
-            if diff.total_seconds() <= (heartbeat_sleep_time * 2):
+            info(f"diff: {diff}")
+            info(f"diff.seconds: {diff.total_seconds()}")
+            if diff.total_seconds() <= (heartbeat_sleep_time * 10):
+                info("Node is active")
                 return True
+    info("Node is not active")
     return False
 
 
-async def get_rabbitmq_client(vhost: str, rabbitmq_url: str):
+async def get_rabbitmq_client(vhost: str, rabbitmq_url: str) -> RabbitMQ:
     if len(rabbitmq_url) > 0 and len(vhost) > 0:
         if vhost.startswith("/"):
             vhost = vhost[1:]
@@ -250,9 +257,11 @@ async def get_allowed_namespace(
 
 async def get_redis_client(request: Request) -> Redis:
     try:
-        return request.state.redis_client
+        redis_url = request.state.redis_url
+        _, client = rsu_connect(redis_url)
+        return client
     except AttributeError:
-        raise HTTPException(status_code=500, detail="Redis client not set")
+        raise HTTPException(status_code=500, detail="Redis url not set")
 
 
 async def get_rabbitmq_management_api(request: Request):

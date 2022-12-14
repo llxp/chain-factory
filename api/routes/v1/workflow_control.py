@@ -53,7 +53,8 @@ async def stop_workflow(
                 await workflow_status_collection.insert_one(dict(
                     workflow_id=workflow_id,
                     namespace=namespace,
-                    status='Stopped'
+                    status='Stopped',
+                    created_date=datetime.utcnow()
                 ))
                 return "Workflow stopped"
             raise HTTPException(status_code=400, detail='Workflow already stopped')  # noqa: E501
@@ -90,7 +91,8 @@ async def abort_workflow(
                 await workflow_status_collection.insert_one(dict(
                     workflow_id=workflow_id,
                     namespace=namespace,
-                    status='Stopped'
+                    status='Stopped',
+                    created_date=datetime.utcnow()
                 ))
                 return "Workflow aborted"
             raise HTTPException(status_code=400, detail="Workflow already stopped")  # noqa: E501

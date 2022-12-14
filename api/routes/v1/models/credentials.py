@@ -2,7 +2,6 @@ from fastapi import HTTPException
 from logging import error, info, warning
 from typing import Union, Dict
 from datetime import datetime
-# from aioredis import Redis
 from redis import Redis
 from cryptography.fernet import Fernet
 from amqpstorm.management import ManagementApi, ApiError

@@ -5,6 +5,5 @@ export class environment {
     }
   production: boolean = true;
   apiEndpoint: string = '';
-  protocol: string = 'http';
   authenticationEnabled: boolean = true;
 };

@@ -51,12 +51,11 @@ export default function TaskTable() {
   const handleStart = (
     task: string,
     selectedArguments: Map<string, string>,
-    nodeSelection: string,
     tags: string[],
     namespace: string
   ) => {
     reduxDispatch(
-      startTask(namespace, nodeSelection, task, selectedArguments, tags)
+      startTask(namespace, task, selectedArguments, tags)
     ).then(
       () => {
         enqueueSnackbar("Task started!", {

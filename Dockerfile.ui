@@ -3,14 +3,16 @@ FROM node:12.13.0-alpine as build
 
 WORKDIR /usr/src/app
 
-COPY webui/src/ ./src/
 COPY webui/package.json ./
-COPY webui/public ./public/
 COPY webui/tsconfig.json ./
 COPY webui/.babelrc ./
 COPY webui/.gitignore ./
 
 RUN npm install
+
+COPY webui/src/ ./src/
+COPY webui/public ./public/
+
 RUN npm run build
 
 COPY webui/.env.example ./

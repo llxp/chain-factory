@@ -40,8 +40,8 @@ export function updateAvailableTasks(namespace: string, page: number, rowsPerPag
   };
 }
 
-export function startTask(namespace, node, task, taskArguments, tags): ThunkAction<Promise<HandleWorkflowResponse>, RootState, undefined, any> {
+export function startTask(namespace, task, taskArguments, tags): ThunkAction<Promise<HandleWorkflowResponse>, RootState, undefined, any> {
   return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
-    return await startTaskApi(namespace, node, task, taskArguments, tags) as HandleWorkflowResponse;
+    return await startTaskApi(namespace, task, taskArguments, tags) as HandleWorkflowResponse;
   };
 }

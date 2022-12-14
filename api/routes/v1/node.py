@@ -1,5 +1,5 @@
 from logging import info
-from aioredis import Redis
+from redis import Redis
 from fastapi import APIRouter, Depends, HTTPException
 from odmantic import AIOEngine
 from typing import List
@@ -77,7 +77,7 @@ async def node_metrics(
         async for doc in collection.find()
         if (ns == namespace or default_namespace(namespace))
     }
-    nodes = dict()
+    nodes = list()
     for ns, task in registered_tasks_result.items():
         node_name = task['node_name']
         if node_name:
@@ -85,9 +85,12 @@ async def node_metrics(
             if namespace_obj:
                 info(f"Found namespace {namespace_obj.namespace}")
                 domain = namespace_obj.domain
-                node_status = await node_active(
-                    node_name, ns, domain, redis_client)
-                nodes[node_name] = node_status
+                nodes.append({
+                    "node_name": node_name,
+                    "namespace": ns,
+                    "active": await node_active(node_name, ns, domain, redis_client)  # noqa: E501
+                })
+    info(f"Found nodes {nodes}")
     return nodes
 
 

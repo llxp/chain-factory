@@ -5,7 +5,7 @@ import { signOutAsync } from "./pages/signin/signin.slice";
 import { HandleWorkflowResponse, PagedTaskLogs, PagedWorkflows, PagedWorkflowTasks, WorkflowMetrics, WorkflowStatus } from "./pages/workflows/WorkflowTable/models";
 import { store } from "./store";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
-import { HTTPException, RefreshTokenResponse, SignInRequest, SignInResponse } from "./models";
+import { HTTPException, NodeMetricsResponse, RefreshTokenResponse, SignInRequest, SignInResponse } from "./models";
 
 const redirectCallback: { (): void } = () => {
   store.dispatch(signOutAsync());
@@ -83,8 +83,8 @@ export async function workflowTasks(namespace, workflowId: string, page: number,
 export async function handleWorkflow(namespace: string, action: string, workflowId: string) {
   const workflowAction = () => {
     switch (action) {
-      case "start":
-        return "start";
+      case "abort":
+        return "abort";
       case "stop":
         return "stop";
       case "restart":
@@ -115,15 +115,15 @@ export async function activeTasks(namespace: string, searchTerm: string, page: n
   ).then(response => response.data);
 }
 
-export async function startTask(namespace: string, node: string, task: string, taskArguments: any, tags: string[]) {
+export async function startTask(namespace: string, task: string, taskArguments: any, tags: string[]) {
   return axios.post<HandleWorkflowResponse | HTTPException>(
-    `/api/v1/tasks/new?namespace=${namespace}&node_name=${node}&task=${task}`,
+    `/api/v1/tasks/new?namespace=${namespace}&node_name=default&task=${task}`,
     { 'arguments': taskArguments, 'tags': tags }
   ).then(response => response.data);
 }
 
 export async function nodeMetrics(namespace: string) {
-  return axios.get<any>(`/api/v1/node/metrics?namespace=${namespace}`).then(response => response.data);
+  return axios.get<NodeMetricsResponse[] | HTTPException>(`/api/v1/node/metrics?namespace=${namespace}`).then(response => response.data);
 }
 
 export async function workflowMetrics(namespace: string) {

@@ -133,6 +133,10 @@ async def workflows(
                     if pattern_temp:
                         patterns.append(pattern_temp)
             if patterns:
+                if "$match" not in stage:
+                    stage["$match"] = {
+                        "$and": []
+                    }
                 stage['$match']['$and'].append({
                     '$and': patterns
                 })

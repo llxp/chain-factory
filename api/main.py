@@ -15,8 +15,6 @@ from fastapi.openapi.utils import get_openapi
 from odmantic import AIOEngine
 from motor.motor_asyncio import AsyncIOMotorClient
 from amqpstorm.management import ManagementApi
-# from aioredis import from_url
-from redis import from_url
 
 from api.auth.models.credentials import Credentials
 from api.routes import api
@@ -179,9 +177,6 @@ rabbitmq_management_api = ManagementApi(
 motor_client = AsyncIOMotorClient(mongodb_url, serverSelectionTimeoutMS=3000, connectTimeoutMS=3000, socketTimeoutMS=3000)  # noqa: E501
 odm_session = AIOEngine(motor_client=motor_client, database=mongodb_database)
 
-# initialize redis client
-redis_client = from_url(redis_url)
-
 
 @app.middleware("http")
 async def set_request_parameter(request: Request, call_next):
@@ -192,7 +187,7 @@ async def set_request_parameter(request: Request, call_next):
     request.state.odm_session = odm_session
     request.state.idp_credentials = Credentials(
         username=translate_users_username, password=translate_users_password)
-    request.state.redis_client = redis_client
+    request.state.redis_url = redis_url
     request.state.rabbitmq_management_api = rabbitmq_management_api
     request.state.rabbitmq_url = rabbitmq_url
     return await call_next(request)

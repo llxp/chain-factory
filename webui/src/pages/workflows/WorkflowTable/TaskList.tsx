@@ -51,8 +51,6 @@ export default function TaskList(props: TaskListProps) {
   if (workflowTasks.total_count === 0 || workflowTasksError) {
     return <div>No tasks</div>;
   }
-  
-  console.log(workflowPage);
 
   const workflowPages = Math.ceil(workflowTasksCount / tasksPerPage);
 

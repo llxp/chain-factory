@@ -1,5 +1,6 @@
 import { Action, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { nodeMetrics, workflowMetrics } from "../../api";
+import { NodeMetricsResponse } from "../../models";
 import { RootState } from '../../store';
 import { WorkflowMetrics } from "../workflows/WorkflowTable/models";
 import { setAllNodes, setAllWorkflows, setRunningNodes, setRunningWorkflows, setStoppedNodes, setStoppedWorkflows } from "./Dashboard.reducer";
@@ -7,12 +8,17 @@ import { setAllNodes, setAllWorkflows, setRunningNodes, setRunningWorkflows, set
 export function fetchNodeMetrics(namespace: string): ThunkAction<void, RootState, undefined, any> {
   return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
-      const nodeMetricsResult = await nodeMetrics(namespace);
-      dispatch(setAllNodes(Object.keys(nodeMetricsResult)));
-      dispatch(setRunningNodes(Object.keys(nodeMetricsResult).filter(node => nodeMetricsResult[node] === true)));
-      dispatch(setStoppedNodes(Object.keys(nodeMetricsResult).filter(node => nodeMetricsResult[node] === false)));
+      const nodeMetricsResponse = await nodeMetrics(namespace);
+      const nodeMetricsResult = nodeMetricsResponse as NodeMetricsResponse[];
+      const allNodes = nodeMetricsResult.map((node) => node.node_name);
+      dispatch(setAllNodes(allNodes));
+      dispatch(setRunningNodes(nodeMetricsResult.filter((node) => node.active).map((node) => node.node_name)));
+      dispatch(setStoppedNodes(nodeMetricsResult.filter((node) => !node.active).map((node) => node.node_name)));
     } catch (error) {
       console.log(error);
+      dispatch(setAllNodes([]));
+      dispatch(setRunningNodes([]));
+      dispatch(setStoppedNodes([]));
     }
   };
 }

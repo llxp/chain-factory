@@ -1,12 +1,14 @@
 from typing import Optional
-from fastapi import Depends, Request, HTTPException
+from fastapi import Depends, Request, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security.http import HTTPBase, HTTPBearerModel, get_authorization_scheme_param  # noqa: E501
 from starlette.status import HTTP_403_FORBIDDEN
 from jwt import ExpiredSignatureError, InvalidAudienceError
+from odmantic import AIOEngine
 
-from .utils.request import get_server_secret
-from .models.token import Token
+from .utils.request import get_hostname, get_server_secret, get_odm_session
+from .models.token import Token, TokenResponse
+from .refresh_token import find_refresh_token, get_token as get_refresh_token
 
 
 def get_token(request: Request) -> str:
@@ -21,14 +23,16 @@ class HTTPBearer(HTTPBase):
     def __init__(
         self,
         *,
-        bearerFormat: Optional[str] = None,
+        cookie_name: str = "Authorization",
+        bearer_format: Optional[str] = None,
         scheme_name: Optional[str] = None,
         description: Optional[str] = None,
         auto_error: bool = True,
     ):
-        self.model = HTTPBearerModel(bearerFormat=bearerFormat, description=description)  # noqa: E501
+        self.model = HTTPBearerModel(bearerFormat=bearer_format, description=description)  # noqa: E501
         self.scheme_name = scheme_name or self.__class__.__name__
         self.auto_error = auto_error
+        self.cookie_name = cookie_name
 
     async def __call__(
         self, request: Request
@@ -36,7 +40,7 @@ class HTTPBearer(HTTPBase):
         authorization: str = request.headers.get("Authorization")
         if not authorization:
             # print(request.cookies)
-            cookie = request.cookies.get("Authorization")
+            cookie = request.cookies.get(self.cookie_name)
             if (cookie is not None) and cookie.startswith("Bearer "):
                 authorization = cookie
         scheme, credentials = get_authorization_scheme_param(authorization)
@@ -64,12 +68,26 @@ class CheckScope:
     async def __call__(
         self,
         request: Request,
-        bearer_token: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
-        server_secret: str = Depends(get_server_secret)
+        response: Response,
+        database: AIOEngine = Depends(get_odm_session),
+        bearer_token: HTTPAuthorizationCredentials = Depends(HTTPBearer(cookie_name='Authorization')),  # noqa: E501
+        refresh_token: HTTPAuthorizationCredentials = Depends(HTTPBearer(cookie_name='RefreshToken')),  # noqa: E501
+        server_secret: str = Depends(get_server_secret),
+        hostname: str = Depends(get_hostname)
     ) -> str:
         if bearer_token:
             token = bearer_token.credentials
             return self.get_token(request, token, server_secret)
+        if refresh_token:
+            token = await get_refresh_token(refresh_token, server_secret)
+            if token:
+                db_token = await find_refresh_token(database, token.jti)
+                if db_token:
+                    username = token.username
+                    scopes = db_token.scopes
+                    token_response = TokenResponse.create_token(hostname, username, scopes, server_secret)  # noqa: E501
+                    response.set_cookie("Authorization", f"Bearer {token_response.token}", max_age=60 * 15, httponly=True, samesite='none', secure=True)  # noqa: E501
+                    return self.get_token(request, token_response.token, server_secret)  # noqa: E501
         raise HTTPException(status_code=403, detail='Authentication required')
 
     def get_token(self, request: Request, token: str, server_secret: str):

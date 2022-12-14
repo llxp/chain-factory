@@ -14,7 +14,6 @@ RUN mkdir -p /www/
 COPY ./api/ /www/api
 COPY ./framework/ /www/framework
 COPY ./main_api.py /www/
-#COPY ./framework /www/framework/
 # COPY ./api/config.json /docker-entrypoint.d/
 
 ENV HOST="0.0.0.0"

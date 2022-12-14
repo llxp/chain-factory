@@ -151,3 +151,9 @@ Or register the task using the decorator and using an imported function in an ex
 	- `cat ./k3s/rabbitmq/ingress.yml | sed "s/localhost/$BASE_DOMAIN_ENV/g" | kubectl apply -f -`
 	- 
 ## Configuration
+
+
+## Cleanup
+In k8s mode, there is a cron job, which automatically deletes oldest workflow/task logs.
+Per default it is configured to keep the workflows of the latest 90 days and delete everything else.
+The script inside the container uses a rest-api endpoint, which first retrieves all workflows in a given date range and then calls a rest-api endpoint to delete those workflows/workflow logs.
