@@ -101,14 +101,14 @@ Or register the task using the decorator and using an imported function in an ex
 			- Lists all currently available tasks. (if you stop a node, the tasks are not startable through the webui.)
 
 ## Installation
-- The sample installation used for local developmental purposes only can be installed using the script `install_k8s_resources.sh` If you want to install the components in production you currently need to install the manually. But you can copy most of the lines in the install script to install it in production. You only need to remove the sections relevant for the loki/grafana stack and the samba active directory, which should act as a sample identity provider in the sample installation.
+- The sample installation used for local developmental purposes only can be installed using the script `install_k8s_resources.sh` If you want to install the components in production you currently need to install it manually. But you can copy most of the lines in the install script to install it in production. You only need to remove the sections relevant for the loki/grafana stack and the samba active directory, which should act as a sample identity provider in the sample installation.
 - The following components are needed for the production installation:
 	- MongoDB
 	- RabbitMQ
 	- Redis
-	- Authentication-API
-	- Rest-API
-	- Worker-Node
+	- Authentication-API (To be able to use an ldap, keycloak or active directory server)
+	- Rest-API (To start workflows and control the cluster)
+	- Worker-Node (To execute the workflows)
 	- (WebUI, if needed)
 - (if you already have a mongodb/RabbitMQ/Redis instance, you can skip those sections)
 - The following steps expects to be executed from the chain-factory root of the repository.

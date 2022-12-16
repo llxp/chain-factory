@@ -18,8 +18,12 @@ k3s/ldap/openldap/
 k3s/rest-api/chart/
 k3s/vault/cert/cert/
 k3s/vault/cert/cert_old/
-k8s/
+.old/
 scripts/mongodb/
 *.mongodb
 *.pem
 *.key
+misc/
+certs/
+worker/
+kubeconfig*

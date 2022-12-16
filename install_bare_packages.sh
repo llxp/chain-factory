@@ -1,2 +1,0 @@
-# used for installing the bare packages without a version to allow pip to figure out the correct dependencies when upgrading the packages
-pip install fastapi httpx amqpstorm aio-pika python-jose[cryptography] stdio-proxy odmantic hvac flake8 aiohttp pycodestyle aioredis pyjwt aiofiles
