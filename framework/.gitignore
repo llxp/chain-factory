@@ -142,3 +142,5 @@ cython_debug/
 
 # MacOS specific files
 .DS_Store
+
+!misc/
