@@ -1,0 +1,10 @@
+site_name: ChainFactory Documentation
+theme:
+  name: material
+  # features:
+  #   - header.autohide
+
+extra:
+  social:
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/llxp

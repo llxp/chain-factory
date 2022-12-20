@@ -1,0 +1,20 @@
+sources_dir: docs/sources
+templates_dir: docs/templates
+repo: https://github.com/llxp/chain-factory #link to sources on github
+version: master #link to sources on github
+
+pages:
+  - page: "chain_factory/task_queue/credentials_retriever.md"
+    source: "framework/src/chain_factory/task_queue/credentials_retriever.py"
+    classes:
+      - CredentialsRetriever
+
+  - page: "chain_factory/task_queue/task_queue.md"
+    source: "framework/src/chain_factory/task_queue/task_queue.py"
+    classes:
+      - TaskQueue
+
+  # creates an index page based on everything from target source
+  # - page: "api/layers/index.md"
+  #   source: "tensorx/layers.py"
+  #   index: True
