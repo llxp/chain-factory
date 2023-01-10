@@ -1,9 +1,27 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from odmantic import AIOEngine, EmbeddedModel, Model, Field
 
+from ..wrapper.interruptable_thread import ThreadAbortException
 from ..common.generate_random_id import generate_random_id
 from ..common.settings import reject_limit
+
+
+CallbackType = Callable[..., "TaskReturnType"]
+TaskReturnType = Union[
+    None, str, bool,
+    CallbackType,
+    Exception, ThreadAbortException, TimeoutError, KeyboardInterrupt
+]
+IndexType = Union[int, str]
+SerializableType = Union[
+    str, int, float, bool,
+    List["SerializableType"],
+    Dict[IndexType, "SerializableType"]
+]
+ArgumentType = Dict[str, SerializableType]
+NormalizedTaskReturnType = Tuple[TaskReturnType, ArgumentType]
+TaskRunnerReturnType = Union[None, NormalizedTaskReturnType]
 
 
 class RegisteredTask(EmbeddedModel):
@@ -35,33 +53,37 @@ class Task(EmbeddedModel):
     # required, name of task to start
     name: str
     # required, arguments of task to start
-    arguments: Dict[str, Union[str, list, dict]] = {}
+    arguments: Dict[str, Any] = {}
     # not required, will be overritten by the task_handler
     received_date: Optional[datetime] = Field(default_factory=datetime.utcnow)
     # not required, should be omitted, when starting a new task
-    parent_task_id: Optional[str] = ""
+    parent_task_id: str = Field(default="")
     # not required, should be omitted, when starting a new task
-    workflow_id: Optional[str] = ""
+    workflow_id: str = Field(default="")
     # not required, will be overritten by the task_handler
-    task_id: Optional[str] = ""
+    task_id: str = Field(default="")
     # a list of names the task can be started on.
     # Required, can be empty.
     # If empty it will be executed on any of the nodes
     # where the task is registered
-    node_names: Optional[List[str]] = []
+    node_names: List[str] = Field(default_factory=list)
     # tags to be associated with the new task.
     # Used to query for the workflow logs
     tags: Optional[List[str]] = []
     # not required, should be omitted, when starting a new task
-    reject_counter: Optional[int] = 0
+    reject_counter: int = Field(default=0)
     # planned date for timed tasks, can be ommited (optional)
-    planned_date: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    planned_date: datetime = Field(default_factory=datetime.utcnow)
 
     def workflow_precheck(self):
-        return (
-            len(self.parent_task_id) <= 0 and
-            len(self.workflow_id) <= 0
-        )
+        """
+        Checks
+        if the task is a workflow task aka first task of a workflow
+        or a subtask of a workflow
+        """
+        if self.workflow_id or self.parent_task_id:
+            return False
+        return True
 
     async def is_stopped(self, namespace: str, database: AIOEngine):
         workflow_status = await database.find_one(WorkflowStatus, (
@@ -114,7 +136,7 @@ class Task(EmbeddedModel):
         return len(self.parent_task_id) > 0
 
     def cleanup_task(self):
-        self.task_id = None
+        self.task_id = ""
 
 
 class TaskWorkflowAssociation(Model):
@@ -145,7 +167,7 @@ class WorkflowStatus(Model):
 
     @classmethod
     async def get(
-        cls: "WorkflowStatus",
+        cls: Type["WorkflowStatus"],
         mongodb_client: AIOEngine,
         workflow_id: str,
         namespace: str

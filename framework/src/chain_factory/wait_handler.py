@@ -1,9 +1,9 @@
 from asyncio import AbstractEventLoop, sleep
 from datetime import datetime, timedelta
 from logging import info, debug, warning
-from amqpstorm import Message
+from typing import Optional
 
-from .wrapper.rabbitmq import RabbitMQ, getPublisher
+from .wrapper.rabbitmq import RabbitMQ, getPublisher, Message
 from .wrapper.redis_client import RedisClient
 from .models.mongodb_models import Task
 from .wrapper.list_handler import ListHandler
@@ -83,13 +83,13 @@ class WaitHandler(QueueHandler):
         time_difference = timedelta(seconds=max_task_age_wait_queue)
         return time_now - time_difference
 
-    async def on_task(self, task: Task, message: Message) -> Task:
+    async def on_task(self, task: Task, message: Message) -> Optional[Task]:
         if task is not None and len(task.name):
             if await self._check_blocklist(task, message):
                 return None
             max_task_age = self._seconds_diff()
             current_task_age = task.received_date
-            if current_task_age < max_task_age:
+            if current_task_age and current_task_age < max_task_age:
                 # task is older then max_task_age
                 # reschedule the task to the task_queue
                 info(f"reschedulung task to queue: {self.queue_name}")  # noqa: E501

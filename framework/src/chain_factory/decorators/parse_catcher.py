@@ -4,7 +4,7 @@ from logging import exception
 from typing import Tuple, Type
 
 
-def parse_catcher(errors: Tuple[Type[Exception]] = (Exception, )):
+def parse_catcher(errors: Tuple[Type[Exception], ...] = (Exception, )):
     def decorator(func):
         def new_func(*args, **kwargs):
             try:

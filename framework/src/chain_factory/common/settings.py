@@ -66,5 +66,5 @@ wait_blocked_queue = getenv("WAIT_BLOCKED_QUEUE", "wb_queue")
 namespace = getenv("NAMESPACE", "test01")
 namespace_key = getenv("NAMESPACE_KEY", "")
 # maximum time in seconds a task can run, until it will be aborted
-task_timeout = getenv("TASK_TIMEOUT", None)
-task_repeat_on_timeout = getenv("TASK_REPEAT_ON_TIMEOUT", False)
+task_timeout = int(getenv("TASK_TIMEOUT", -1))
+task_repeat_on_timeout = bool(getenv("TASK_REPEAT_ON_TIMEOUT", False))

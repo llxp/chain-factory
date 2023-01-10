@@ -60,8 +60,8 @@ class TaskQueue():
         self,
         task_name: str,
         arguments: dict,
-        namespace: str = None,
-        namespace_key: str = None
+        namespace: str = "",
+        namespace_key: str = ""
     ):
         """
         starts a new task by name
@@ -75,7 +75,7 @@ class TaskQueue():
         credentials: CredentialsRetriever = \
             await self.task_queue_handlers._credentials_pool.get_credentials(
                 namespace, namespace_key)
-        rabbitmq_url = credentials.rabbitmq()
+        rabbitmq_url = credentials.rabbitmq
         try:
             await self._task_starter[namespace].start_task(
                 task_name, arguments)
@@ -84,8 +84,7 @@ class TaskQueue():
                 namespace=namespace,
                 rabbitmq_url=rabbitmq_url,
             )
-            self._task_starter[namespace].start_task(
-                task_name, arguments)
+            await self._task_starter[namespace].start_task(task_name, arguments)  # noqa: E501
 
     async def wait_for_task(
         self,
@@ -96,7 +95,7 @@ class TaskQueue():
         """
         waits for a task to complete
         """
-        self.task_queue_handlers.wait_for_task(namespace, task_name, arguments)
+        await self.task_queue_handlers.wait_for_task(namespace, task_name, arguments)  # noqa: E501
 
     def task(
         self,
@@ -108,8 +107,11 @@ class TaskQueue():
 
         - Registers a new task in the framework internally
             - using the function name as the task name
-            - using the function as the task handler, which will be wrapped internally in a TaskRunner class
-        - also adds a special `.s` method to the function, which can be used to start the function as a task from inside another task (for chaining of tasks)
+            - using the function as the task handler,
+              which will be wrapped internally in a TaskRunner class
+        - also adds a special `.s` method to the function,
+          which can be used to start the function as a task
+          from inside another task (for chaining of tasks)
         - registration in mongodb will be done during the initialisation phase
         """
         def wrapper(func):
@@ -138,14 +140,14 @@ class TaskQueue():
         outer_wrapper = self.task(name, repeat_on_timeout)
         outer_wrapper(func)
 
-    async def listen(self, loop: AbstractEventLoop = None):
+    async def listen(self, loop: AbstractEventLoop):
         """
         Initialises the queue and starts listening
         """
         self._update_task_queue_handlers(loop)
         await self.task_queue_handlers.listen()
 
-    def _update_task_queue_handlers(self, loop: AbstractEventLoop = None):
+    def _update_task_queue_handlers(self, loop: AbstractEventLoop):
         """
         Updates the task queue handlers properties
         with the values from the task queue
@@ -166,8 +168,8 @@ class TaskQueue():
         - Starts listening for tasks
         - and stops the event loop on keyboard interrupt
         """
+        loop = new_event_loop()
         try:
-            loop = new_event_loop()
             loop.create_task(self.listen(loop))
             loop.run_forever()
         except KeyboardInterrupt:

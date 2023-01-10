@@ -1,4 +1,4 @@
-from framework.src.chain_factory.task_queue.argument_excluder import ArgumentExcluder  # noqa: E501
+from chain_factory.argument_excluder import ArgumentExcluder  # noqa: E501
 
 
 def test_argument_excluder():

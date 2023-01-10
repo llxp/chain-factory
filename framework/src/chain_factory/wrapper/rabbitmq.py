@@ -3,18 +3,17 @@ from dataclasses import dataclass
 from logging import debug, error, info
 from traceback import print_exc
 from sys import stdout
-from typing import Callable, Dict, Any, Union
+from typing import Awaitable, Callable, Dict, Any, Optional, Union
 from _thread import interrupt_main
 from _thread import start_new_thread
 from aio_pika import (
     Queue, connect_robust,
     IncomingMessage, Message as AioPikaMessage,
-    DeliveryMode, RobustQueue, Channel
+    DeliveryMode, Channel
 )
-from aio_pika.connection import ConnectionType
+from aio_pika.connection import Connection
 from aio_pika.exceptions import (
-    AMQPConnectionError, AMQPChannelError,
-    ChannelInvalidStateError, DuplicateConsumerTag
+    AMQPConnectionError, ChannelInvalidStateError, DuplicateConsumerTag
 )
 from asyncio import ensure_future
 
@@ -28,17 +27,20 @@ class Message():
     delivery_tag: int
 
 
+FuncType = Callable[[Message], Awaitable[str]]
+
+
 class RabbitMQ:
     def __init__(
         self,
         url: str,
         queue_name: str,
         rmq_type: str = "publisher",
-        callback: Callable[[Message], str] = None,
-        queue_options: Dict[str, Any] = None,
-        loop: AbstractEventLoop = None,
+        callback: Optional[FuncType] = None,
+        queue_options: Dict[str, Any] = {},
+        loop: Optional[AbstractEventLoop] = None,
     ):
-        self.callback: Callable[[Message], str] = callback
+        self.callback: Optional[FuncType] = callback
         self.queue_name: str = queue_name
         self.rmq_type = rmq_type
         self.url = url
@@ -48,7 +50,9 @@ class RabbitMQ:
         self.nacked = []
 
     async def init(self):
-        self.connection: ConnectionType = await RabbitMQ._connect(self.url, loop=self.loop)  # noqa: E501
+        if self.loop is None and self.rmq_type == "consumer":
+            raise Exception("loop is None and loop is required for consumer")
+        self.connection: Connection = await RabbitMQ._connect(self.url, loop=self.loop)  # noqa: E501
         if self.rmq_type == "consumer":
             await self.init_consumer()
         await self.init_sender()
@@ -81,8 +85,8 @@ class RabbitMQ:
     @staticmethod
     async def _connect(
         url: str,
-        loop: AbstractEventLoop = None,
-    ) -> ConnectionType:
+        loop: Optional[AbstractEventLoop],
+    ) -> Connection:
         """
         Connects to an rabbitmq server
         """
@@ -92,17 +96,6 @@ class RabbitMQ:
         connection = await connect_robust(url, timeout=5, loop=loop)
         debug(f"opened new RabbitMQ to host {url}")
         return connection
-
-    @staticmethod
-    async def _queue_exists(self, queue: RobustQueue, queue_name: str):
-        """
-        Check, if the declared queue has been declared
-        """
-        try:
-            await queue.declare(queue=queue_name, durable=True, passive=True)
-            return True
-        except (AMQPChannelError, AMQPConnectionError):
-            return False
 
     async def message_count(self) -> int:
         """
@@ -120,7 +113,13 @@ class RabbitMQ:
             if len(message.body) <= 0:
                 await message.ack()  # ignore empty messages
                 return
-            new_message: Message = Message(message.body, message, message.delivery_tag)  # noqa: E501
+            message_body: str = ""
+            if isinstance(message.body, bytes):
+                message_body = message.body.decode("utf-8")
+            else:
+                message_body = message.body
+            delivery_tag: int = message.delivery_tag  # type: ignore
+            new_message: Message = Message(message_body, message, delivery_tag)  # noqa: E501
             if self.callback is not None:
                 debug("invoking registered callback method")
                 await self._start_callback(new_message)
@@ -173,8 +172,10 @@ class RabbitMQ:
         info(f"starting new consumer for queue {self.queue_name}")
         await self._start_consuming(self._consumer)
 
-    async def _start_consuming(self, consumer: "_Consumer" = None):
+    async def _start_consuming(self, consumer: "_Consumer"):
         try:
+            if consumer is None:
+                raise Exception("consumer is None")
             await consumer.consume(self.callback_impl)
         except Exception:
             error("start_consuming exception")
@@ -187,7 +188,15 @@ class RabbitMQ:
         """
         try:
             new_message = self._create_new_message(message)
-            return await self.sender_channel.channel.default_exchange.publish(new_message, routing_key=self.queue_name)  # noqa: E501
+            if self.sender_channel is None:
+                raise Exception("sender_channel is None")
+            if self.sender_channel.channel is None:
+                raise Exception("sender_channel.channel is None")
+            exchange = self.sender_channel.channel.default_exchange
+            if exchange is None:
+                raise Exception("default exchange is None")
+            publish_result = await exchange.publish(new_message, routing_key=self.queue_name)  # noqa: E501
+            return publish_result is not None
         except (AMQPConnectionError, ChannelInvalidStateError, DuplicateConsumerTag):  # noqa: E501
             print_exc(file=stdout)
             interrupt_main()
@@ -216,22 +225,22 @@ class RabbitMQ:
 class _Consumer:
     def __init__(
         self,
-        connection: ConnectionType,
+        connection: Connection,
         queue_name: str,
-        queue_options: Dict[str, Any] = None,
+        queue_options: Dict[str, Any] = {},
     ):
         self.queue_name = queue_name
         self.connection = connection
         self.queue_options = queue_options
-        self.channel: Channel = None
-        self.queue: Queue = None
+        self.channel: Optional[Channel] = None
+        self.queue: Optional[Queue] = None
 
     async def init(self):
-        self.channel: Channel = await self._open_channel(self.connection)
+        self.channel = await self._open_channel(self.connection)
         self.queue = await self._declare_queue(self.queue_options)
 
     @staticmethod
-    async def _open_channel(connection: ConnectionType) -> Channel:
+    async def _open_channel(connection: Connection) -> Channel:
         """
         returns the current opened channel of the amqp connection
         """
@@ -240,21 +249,27 @@ class _Consumer:
         debug("opened new Channel on opened connection")
         return channel
 
-    async def _declare_queue(self, queue_options: Dict[str, Any]):
+    async def _declare_queue(self, queue_options: Dict[str, Any] = {}):
         """
         Declare the specified queue
         """
         queue_name = self.queue_name
         debug(f"declaring queue {queue_name}")
+        if self.channel is None:
+            raise Exception("channel is None")
         queue = await self.channel.declare_queue(name=queue_name, durable=True, arguments=queue_options)  # noqa: E501
         debug(f"declared queue {queue_name}")
         return queue
 
-    async def consume(self, callback: Callable[[IncomingMessage], str]):
+    async def consume(self, callback: Callable[[IncomingMessage], Awaitable[None]]):  # noqa: E501
         """
         Specify, that this instance should be used to consume messages
         """
+        if self.channel is None:
+            raise Exception("channel is None")
         await self.channel.set_qos(prefetch_count=prefetch_count)
+        if self.queue is None:
+            raise Exception("queue is None")
         await self.queue.consume(callback=callback)
         info(f"[{self.queue_name}] [*] Waiting for messages. To exit press CTRL+C")  # noqa: E501
 
@@ -263,6 +278,8 @@ class _Consumer:
         stop consuming on the channel and close the channel
         """
         try:
+            if self.channel is None:
+                raise Exception("channel is None")
             await self.channel.close()
         except (KeyError, AMQPConnectionError, ChannelInvalidStateError):
             pass
@@ -271,32 +288,36 @@ class _Consumer:
         """
         Retrieves the current count of messages, waiting in the queue
         """
+        if self.channel is None:
+            raise Exception("channel is None")
         res: Queue = await self.channel.declare_queue(
-            queue=self.queue_name,
+            name=self.queue_name,
             durable=True,
             exclusive=False,
             auto_delete=False,
             passive=True,
         )
-        return res["message_count"]
+        return res.declaration_result.message_count
 
     async def delete_queue(self):
         """
         Deletes the queue
         """
-        await self.channel.queue_delete(queue=self.queue_name)
+        if self.channel is None:
+            raise Exception("channel is None while deleting queue")
+        await self.channel.queue_delete(queue_name=self.queue_name)
 
-    async def clear_queue(self):
+    async def clear_queue(self, queue_options: Dict[str, Any] = {}):
         """
         Clears the queue
         """
         await self.delete_queue()
-        self.queue = await self._declare_queue()
+        self.queue = await self._declare_queue(queue_options)
 
 
-def getPublisher(rabbitmq_url: str, queue_name: str, queue_options: Dict[str, Any] = None):  # noqa: E501
+def getPublisher(rabbitmq_url: str, queue_name: str, queue_options: Dict[str, Any] = {}):  # noqa: E501
     return RabbitMQ(url=rabbitmq_url, queue_name=queue_name, rmq_type="publisher", queue_options=queue_options)  # noqa: E501
 
 
-def getConsumer(rabbitmq_url: str, queue_name: str, callback: Callable[[Message], str], loop: AbstractEventLoop):  # noqa: E501
+def getConsumer(rabbitmq_url: str, queue_name: str, callback: FuncType, loop: AbstractEventLoop):  # noqa: E501
     return RabbitMQ(url=rabbitmq_url, queue_name=queue_name, rmq_type="consumer", callback=callback, loop=loop)  # noqa: E501

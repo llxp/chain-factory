@@ -31,7 +31,7 @@ class CredentialsPool:
     async def get_credentials(
         self,
         namespace: str,
-        key: str
+        key: str = ""
     ) -> CredentialsRetriever:
         """
         Get the credentials for the namespace.
@@ -39,8 +39,9 @@ class CredentialsPool:
         try:
             return self._credentials[namespace]
         except KeyError:
-            self._credentials[namespace] = CredentialsRetriever(
-                self.endpoint, namespace, self.username, self.password, key)
+            if key == "":
+                raise Exception("Trying to get credentials for yet unknown namespace without a key. Please request the credentials during initialization of the worker node.")  # noqa: E501
+            self._credentials[namespace] = CredentialsRetriever(self.endpoint, namespace, self.username, self.password, key)  # noqa: E501
             await self._credentials[namespace].init()
             return self._credentials[namespace]
 
@@ -51,4 +52,4 @@ class CredentialsPool:
         namespaces = self._credentials.keys()
         self._credentials = {}
         for namespace in namespaces:
-            await self.get_credentials(namespace)
+            await self.get_credentials(namespace, self.namespaces[namespace])

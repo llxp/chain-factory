@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict
 from json import dumps
 from logging import error, info, debug, exception, warning
 from traceback import print_exc
@@ -7,13 +7,9 @@ from time import sleep, time
 from io import BytesIO
 from threading import Lock
 
-from .models.mongodb_models import Task
+from .models.mongodb_models import Task, ArgumentType, CallbackType, TaskRunnerReturnType, TaskReturnType, NormalizedTaskReturnType  # noqa: E501
 from .wrapper.interruptable_thread import ThreadAbortException
 from .wrapper.redis_client import RedisClient
-from .common.task_return_type import (
-    ArgumentType, CallbackType, TaskRunnerReturnType,
-    TaskReturnType, NormalizedTaskReturnType
-)
 from .task_thread import TaskThread
 from .task_control_thread import TaskControlThread
 
@@ -30,7 +26,7 @@ class TaskRunner():
         self.callback: CallbackType = callback
         self.name: str = name
         self.task_threads: Dict[str, TaskThread] = {}
-        self.task_timeout = None
+        self.task_timeout: int = -1
         self.task_repeat_on_timeout = False
         self.namespace = namespace
 
@@ -42,7 +38,7 @@ class TaskRunner():
 
     async def run(
         self,
-        arguments: Dict[str, str],
+        arguments: ArgumentType,
         workflow_id: str,
         buffer: BytesIO
     ) -> TaskRunnerReturnType:
@@ -57,8 +53,7 @@ class TaskRunner():
             # self.convert_arguments could raise a TypeError
             arguments = self.convert_arguments(arguments)
             with TaskRunner.lock:
-                self.task_threads[workflow_id] = self._create_task_thread(
-                    arguments, buffer)
+                self.task_threads[workflow_id] = self._create_task_thread(arguments, buffer)  # noqa: E501
             # start the task
             with TaskRunner.lock:
                 self.task_threads[workflow_id].start()
@@ -92,16 +87,8 @@ class TaskRunner():
             del self.task_threads[workflow_id]
             return None
 
-    def _create_task_thread(
-        self,
-        arguments: Dict[str, str],
-        buffer: BytesIO
-    ):
-        return TaskThread(
-            self.callback,
-            arguments,
-            buffer
-        )
+    def _create_task_thread(self, arguments: ArgumentType, buffer: BytesIO):
+        return TaskThread(self.callback, arguments, buffer)
 
     def _task_finished(self, workflow_id: str):
         return self.task_threads[workflow_id].status in [2, 3, 4, 5]
@@ -118,7 +105,7 @@ class TaskRunner():
             current_time = time()
             elapsed_time = current_time - start_time
             if (
-                self.task_timeout is not None and
+                self.task_timeout != -1 and
                 elapsed_time > self.task_timeout
             ):
                 self.task_threads[workflow_id].abort_timeout()
@@ -131,7 +118,7 @@ class TaskRunner():
     @staticmethod
     def _parse_task_output(
         task_result: TaskReturnType,
-        arguments: Dict[str, str]
+        old_arguments: ArgumentType
     ) -> NormalizedTaskReturnType:
         """
         Check, if new parameters have been returned,
@@ -155,26 +142,24 @@ class TaskRunner():
                 # check for function type
                 callable(task_result[0])
             ):
-                arguments = task_result[1]
+                old_arguments = task_result[1]  # type: ignore
             # override the result to the real result
             # as either Task, False or None
             task_result = task_result[0]
-        return task_result, arguments
+        return task_result, old_arguments
 
-    def convert_arguments(self, arguments: ArgumentType) -> Dict[str, Any]:
+    def convert_arguments(self, arguments: ArgumentType) -> ArgumentType:
         callback_arguments = list(self.callback.__code__.co_varnames)
         callback_types = self.callback.__annotations__
         for argument in arguments:
             if argument in callback_arguments and argument in callback_types:
-                if (
-                    callback_types[argument] == int and
-                    type(arguments[argument]) == str and
-                    len(arguments[argument]) > 0
-                ):
-                    try:
-                        arguments[argument] = int(arguments[argument])
-                    except Exception as e:
-                        error(e)
+                if callback_types[argument] == int and isinstance(arguments[argument], str):  # noqa: E501
+                    if len(arguments[argument]) > 0:  # type: ignore
+                        try:
+                            argument_value: str = arguments[argument]  # type: ignore  # noqa: E501
+                            arguments[argument] = int(argument_value)
+                        except Exception as e:
+                            error(e)
         return arguments
 
     def abort(self, workflow_id: str):

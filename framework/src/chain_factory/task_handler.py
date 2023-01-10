@@ -1,10 +1,10 @@
-from typing import Dict, Union, Callable, List
+from typing import Dict, Union, List
 from datetime import datetime
 from time import sleep
 from logging import info, debug, warning, error
 from threading import Lock
 from odmantic import AIOEngine
-from inspect import Signature, signature
+from inspect import signature
 from asyncio import AbstractEventLoop, ensure_future
 
 from .task_runner import TaskRunner
@@ -24,7 +24,7 @@ from .common.settings import wait_time
 from .common.settings import incoming_block_list_redis_key
 
 # common
-from .common.task_return_type import ArgumentType, TaskReturnType, TaskRunnerReturnType  # noqa: E501
+from .models.mongodb_models import ArgumentType, TaskReturnType, TaskRunnerReturnType, CallbackType  # noqa: E501
 
 # models
 from .models.mongodb_models import Task, TaskStatus, WorkflowStatus, TaskWorkflowAssociation, Workflow  # noqa: E501
@@ -42,11 +42,11 @@ class TaskHandler(QueueHandler):
         QueueHandler.__init__(self)
         self.ack_lock = Lock()
         self.registered_tasks: Dict[str, TaskRunner] = {}
-        self.mongodb_client: AIOEngine = None
-        self.task_timeout = None
-        self.namespace = namespace
-        self.node_name = node_name
-        self._current_task = None
+        self.mongodb_client: Union[AIOEngine, None] = None
+        self.task_timeout: int = -1
+        self.namespace: str = namespace
+        self.node_name: str = node_name
+        self._current_task: Union[Task, None] = None
 
     async def init(
         self,
@@ -113,12 +113,13 @@ class TaskHandler(QueueHandler):
         """
         Report the workflow id to the mongodb database
         """
-        await self.mongodb_client.save(Workflow(
-            workflow_id=workflow_id,
-            node_name=self.node_name,
-            namespace=self.namespace,
-            tags=tags,
-        ))
+        if self.mongodb_client is not None:
+            await self.mongodb_client.save(Workflow(
+                workflow_id=workflow_id,
+                node_name=self.node_name,
+                namespace=self.namespace,
+                tags=tags,
+            ))
 
     async def _save_task_workflow_association(self, task: Task):
         """
@@ -127,11 +128,12 @@ class TaskHandler(QueueHandler):
         arguments_excluder = ArgumentExcluder(task.arguments)
         arguments_excluder.exclude()
         task.arguments = arguments_excluder.arguments
-        await self.mongodb_client.save(TaskWorkflowAssociation(
-            workflow_id=task.workflow_id,
-            task=task,
-            node_name=self.node_name
-        ))
+        if self.mongodb_client is not None:
+            await self.mongodb_client.save(TaskWorkflowAssociation(
+                workflow_id=task.workflow_id,
+                task=task,
+                node_name=self.node_name
+            ))
         if arguments_excluder.arguments_copy:
             task.arguments = arguments_excluder.arguments_copy
 
@@ -139,10 +141,12 @@ class TaskHandler(QueueHandler):
         """
         Runs the specified task and returns the result of the task function
         """
-        task_id = task.task_id
+        task_id: str = task.task_id or ""
         task_name = task.name
         # buffer to redirect stdout/stderr to the database
-        log_buffer = BytesIOWrapper(task_id, task.workflow_id, self.mongodb_client, loop=self.loop)  # noqa: E501
+        if self.mongodb_client is None:
+            raise Exception("mongodb client is not initialized")
+        log_buffer = BytesIOWrapper(task_id, task.workflow_id or "", self.mongodb_client, loop=self.loop)  # noqa: E501
         self._current_task = task
         self._can_be_marked_as_stopped = True
         info(f"running task '{task_name}' with task_id '{task_id}'")
@@ -151,7 +155,7 @@ class TaskHandler(QueueHandler):
         info(f"task '{task_name}' with task_id {task_id} finished")
         return result
 
-    def _new_task_from_result(self, task_result: TaskReturnType, new_arguments: Dict[str, str]) -> Task:  # noqa: E501
+    def _new_task_from_result(self, task_result: TaskReturnType, new_arguments: ArgumentType) -> Union[Task, None]:  # noqa: E501
         # check, if result is a string ==> task name
         if isinstance(task_result, str):
             # create a new task object from task name and arguments
@@ -170,14 +174,16 @@ class TaskHandler(QueueHandler):
     def _return_new_task(
         self,
         old_task: Task,
-        new_arguments: Dict[str, str],
-        task_result: Union[str, Task, Callable[..., Dict[str, str]]],
+        new_arguments: ArgumentType,
+        task_result: TaskReturnType,
     ) -> Task:
         """
         add the old task to the current task as the parent and schedule
         the to be scheduled task to the message queue
         """
         new_task = self._new_task_from_result(task_result, new_arguments)
+        if new_task is None:
+            raise Exception("invalid task result")
         new_task.set_parent_task(old_task)
         if sticky_tasks:  # settings.sticky_tasks
             # if sticky_tasks option is set,
@@ -185,7 +191,7 @@ class TaskHandler(QueueHandler):
             new_task.node_names = [self.node_name]
         return new_task
 
-    async def _return_error_task(self, task: Task, new_arguments: Dict[str, str]) -> None:  # noqa: E501
+    async def _return_error_task(self, task: Task, new_arguments: ArgumentType) -> None:  # noqa: E501
         """
         Reenqueue the current task to the wait queue if the current task failed
         """
@@ -205,7 +211,7 @@ class TaskHandler(QueueHandler):
         if not task.has_parent_task():
             # report workflow to database,
             # if it is the first task in the workflow task chain
-            await self._save_workflow(task.workflow_id, task.tags)
+            await self._save_workflow(task.workflow_id, task.tags or [])
 
     async def _save_task_result(self, task_id: str, result: str):
         task_status = TaskStatus(
@@ -214,9 +220,13 @@ class TaskHandler(QueueHandler):
             status=result,
             created_date=datetime.utcnow()
         )
+        if self.mongodb_client is None:
+            raise Exception("mongodb client is not initialized")
         await self.mongodb_client.save(task_status)
 
     async def _mark_workflow_as_stopped(self, workflow_id: str, status: str):
+        if self.mongodb_client is None:
+            raise Exception("mongodb client is not initialized")
         if not await WorkflowStatus.get(self.mongodb_client, workflow_id, self.namespace):  # noqa: E501
             workflow_status = WorkflowStatus(
                 workflow_id=workflow_id,
@@ -241,8 +251,8 @@ class TaskHandler(QueueHandler):
 
     async def _handle_task_result(
         self,
-        task_result: Union[bool, None, Task],
-        arguments: Dict[str, str],
+        task_result: TaskReturnType,
+        arguments: ArgumentType,
         message: Message,
         task: Task,
     ) -> Union[Task, None]:
@@ -251,7 +261,7 @@ class TaskHandler(QueueHandler):
             return await self._handle_repeat_task(task, arguments, "False")
         elif task_result is TimeoutError:
             if self.registered_tasks[task.name].task_repeat_on_timeout:
-                return self._handle_repeat_task(task, arguments, "Timeout")
+                return await self._handle_repeat_task(task, arguments, "Timeout")  # noqa: E501
             return await self._handle_workflow_stopped(
                 "Timeout", task, self._can_be_marked_as_stopped)
         elif task_result is ThreadAbortException:
@@ -327,13 +337,24 @@ class TaskHandler(QueueHandler):
         if not, it will generate a unique workflow id
         and return it to the queue
         """
+        debug(f"handle task {task}")
+        debug("workflow_precheck")
         if task.workflow_precheck():
+            debug("prepare workflow")
             return await self._prepare_workflow(task, message)
+        debug("prepare task")
         task = await self._prepare_task(task)
+        if self.mongodb_client is None:
+            raise Exception("mongodb client is None")
+        debug("is_stopped")
         if await task.is_stopped(self.namespace, self.mongodb_client):
+            debug("task is stopped. handle_stopped")
             return await self._handle_stopped(task, message)
+        debug("is_planned_task")
         if task.is_planned_task():
+            debug("task is planned. handle_planned_task")
             return await self._handle_planned_task(task, message)
+        debug("handle_run_task")
         return await self._handle_run_task(task, message)
 
     async def _prepare_workflow(self, task: Task, message: Message):
@@ -397,7 +418,7 @@ class TaskHandler(QueueHandler):
             # task is not on the block list
             # iterate through list of all registered tasks
             for registered_task in self.registered_tasks:
-                debug("registered_task: " + registered_task)
+                debug(f"registered_task: {registered_task} == {task.name}")
                 if registered_task == task.name:
                     # reset reject_counter when task has been accepted
                     task.reject_counter = 0
@@ -410,7 +431,7 @@ class TaskHandler(QueueHandler):
         # return None to indicate no next task should be scheduled
         return None
 
-    def add_task(self, name: str, callback: Signature, repeat_on_timeout: bool):  # noqa: E501
+    def add_task(self, name: str, callback: CallbackType, repeat_on_timeout: bool):  # noqa: E501
         """
         Register a new task/task function
         """
@@ -420,7 +441,7 @@ class TaskHandler(QueueHandler):
         self.add_schedule_task_shortcut(name, callback)
         debug(f"registered task:{name}")
 
-    def add_schedule_task_shortcut(self, name: str, callback: Signature):
+    def add_schedule_task_shortcut(self, name: str, callback: CallbackType):
         """
         Add a function to the registered function named .s()
         to schedule the function with or without arguments
@@ -436,6 +457,8 @@ class TaskHandler(QueueHandler):
                 # add kwargs to kwargs_args
                 kwargs.update(kwargs_args)
             task = Task(name=name, arguments=kwargs)
+            if self._current_task is None:
+                raise Exception("self.current_task has been not set while scheduling a task")  # noqa: E501
             task.set_parent_task(self._current_task)
             debug(f"scheduled task:{task.json()}")
             self._can_be_marked_as_stopped = False

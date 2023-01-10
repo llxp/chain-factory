@@ -1,3 +1,4 @@
+from typing import Optional
 from .redis_client import RedisClient
 from ..models.list_item_container import ListItem, ListItemContainer
 from ..decorators.parse_catcher import parse_catcher
@@ -66,7 +67,7 @@ class ListHandler:
         Remove an entry from the list
         """
         if self.redis_client is not None:
-            current_list: ListItemContainer = await self.get()
+            current_list = await self.get()
             if (
                 current_list and
                 current_list.list_items and
@@ -79,7 +80,7 @@ class ListHandler:
                 self.list_name, current_list.json())
         return False
 
-    async def get(self) -> ListItemContainer:
+    async def get(self) -> Optional[ListItemContainer]:
         """
         get the list
         """
