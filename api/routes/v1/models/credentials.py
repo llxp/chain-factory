@@ -20,7 +20,7 @@ class MongoDBCredentials(EmbeddedModel):
     host: str
     port: int
     url: str
-    extra_args: Dict[str, str] = Field(default_factory=dict())
+    extra_args: Dict[str, str] = Field(default=dict())
 
     @classmethod
     async def new(
@@ -32,7 +32,7 @@ class MongoDBCredentials(EmbeddedModel):
         host: str,
         port: int,
         extra_args: Dict[str, str] = dict()
-    ) -> 'MongoDBCredentials':
+    ) -> Union['MongoDBCredentials', None]:
         # create mongodb credentials in the server
         # allow the user to access the namespace
         domain_snake_case = domain.replace('.', '_')
@@ -101,7 +101,7 @@ class RabbitMQCredentials(EmbeddedModel):
         email: str,
         host: str,
         port: int
-    ) -> 'RabbitMQCredentials':
+    ) -> Union['RabbitMQCredentials', None]:
         # create rabbitmq credentials in the server
         # allow the user to access the namespace
         domain_snake_case = domain.replace('.', '_')
@@ -246,7 +246,7 @@ class ManagementCredentials(Model):
         mongodb_host: str, mongodb_port: int, mongodb_extra_args: Dict[str, str],  # noqa: E501
         rabbitmq_host: str, rabbitmq_port: int,
         redis_host: str, redis_port: int,
-    ) -> 'ManagementCredentials':
+    ) -> str:
         credentials_collection = await ManagementCredentialsCollection.new(
             database, rabbitmq_management_client, redis_client,
             namespace, domain, email,
@@ -268,20 +268,20 @@ class ManagementCredentials(Model):
                 created_at=now,
             )
             key = Fernet.generate_key()
-            credentials_json = credentials_data.credentials.json()
+            credentials_json = credentials_data.credentials.json()  # type: ignore  # noqa: E501
             key_str = key.decode('utf-8')
-            encrypted_credentials_data = encrypt(credentials_json, key_str)
+            encrypted_credentials_data = encrypt(credentials_json, key_str).decode('utf-8')  # type: ignore  # noqa: E501
             credentials_data.credentials = encrypted_credentials_data
             await database.save(credentials_data)
             return key_str
-        return None
+        return ""
 
     @classmethod
     async def get(
         cls: type['ManagementCredentials'],
         database: AIOEngine,
         namespace: str,
-    ) -> 'ManagementCredentials':
+    ) -> Union['ManagementCredentials', None]:
         return await database.find_one(ManagementCredentials, ((cls.namespace == namespace)))  # noqa: E501
 
     @classmethod
@@ -292,7 +292,9 @@ class ManagementCredentials(Model):
         domain: str
     ):
         instance = await cls.get(database, namespace)
-        return await database.delete(instance)
+        if instance:
+            return await database.delete(instance)
+        return None
 
 
 class ManagementCredentialsResponse(BaseModel):

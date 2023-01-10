@@ -1,7 +1,9 @@
-from typing import Optional
+from typing import Optional, Union
 from fastapi import Depends, Request, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi.security.http import HTTPBase, HTTPBearerModel, get_authorization_scheme_param  # noqa: E501
+from fastapi.openapi.models import HTTPBearer as HTTPBearerModel
+from fastapi.security.utils import get_authorization_scheme_param
+from fastapi.security.http import HTTPBase  # noqa: E501
 from starlette.status import HTTP_403_FORBIDDEN
 from jwt import ExpiredSignatureError, InvalidAudienceError
 from odmantic import AIOEngine
@@ -16,7 +18,7 @@ def get_token(request: Request) -> str:
         auth_header = request.headers.get('Authorization')
         if auth_header is not None and auth_header.startswith('Bearer '):
             return auth_header[len('Bearer '):]
-    return None
+    return ""
 
 
 class HTTPBearer(HTTPBase):
@@ -29,7 +31,7 @@ class HTTPBearer(HTTPBase):
         description: Optional[str] = None,
         auto_error: bool = True,
     ):
-        self.model = HTTPBearerModel(bearerFormat=bearer_format, description=description)  # noqa: E501
+        self.model = HTTPBearerModel(bearerFormat=bearer_format, description=description)  # type: ignore # noqa: E501
         self.scheme_name = scheme_name or self.__class__.__name__
         self.auto_error = auto_error
         self.cookie_name = cookie_name
@@ -62,7 +64,7 @@ class HTTPBearer(HTTPBase):
 
 
 class CheckScope:
-    def __init__(self, scope: str = None):
+    def __init__(self, scope: str = ""):
         self.scope = scope
 
     async def __call__(
@@ -85,9 +87,11 @@ class CheckScope:
                 if db_token:
                     username = token.username
                     scopes = db_token.scopes
-                    token_response = TokenResponse.create_token(hostname, username, scopes, server_secret)  # noqa: E501
-                    response.set_cookie("Authorization", f"Bearer {token_response.token}", max_age=60 * 15, httponly=True, samesite='none', secure=True)  # noqa: E501
-                    return self.get_token(request, token_response.token, server_secret)  # noqa: E501
+                    if scopes:
+                        token_response = TokenResponse.create_token(hostname, username, scopes, server_secret)  # noqa: E501
+                        response.set_cookie("Authorization", f"Bearer {token_response.token}", max_age=60 * 15, httponly=True, samesite='none', secure=True)  # noqa: E501
+                        return self.get_token(request, token_response.token, server_secret)  # noqa: E501
+                    raise HTTPException(status_code=403, detail='Scopes missing from refresh token')  # noqa: E501
         raise HTTPException(status_code=403, detail='Authentication required')
 
     def get_token(self, request: Request, token: str, server_secret: str):
@@ -98,11 +102,10 @@ class CheckScope:
             return decoded_token.sub
         raise HTTPException(status_code=403, detail='Authentication required')
 
-    def get_decoded_token(self, token: str, server_secret: str) -> Token:
+    def get_decoded_token(self, token: str, server_secret: str) -> Union[Token, None]:  # noqa: E501
         if token and server_secret:
             try:
-                decoded_token = Token.from_string(
-                    token, server_secret, self.scope)
+                decoded_token = Token.from_string(token, server_secret, self.scope)  # noqa: E501
                 if decoded_token:
                     return decoded_token
             except ExpiredSignatureError:

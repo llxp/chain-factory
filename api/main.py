@@ -112,6 +112,8 @@ app.mount("/static", StaticFiles(directory="api/static"), name="static")
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
+    if app.openapi_url is None:
+        raise Exception("openapi_url is not set")
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
         title=app.title + " - Swagger UI",
@@ -122,13 +124,15 @@ async def custom_swagger_ui_html():
     )
 
 
-@app.get(app.swagger_ui_oauth2_redirect_url, include_in_schema=False)
+@app.get(app.swagger_ui_oauth2_redirect_url or "", include_in_schema=False)
 async def swagger_ui_redirect():
     return get_swagger_ui_oauth2_redirect_html()
 
 
 @app.get("/redoc", include_in_schema=False)
 async def redoc_html():
+    if app.openapi_url is None:
+        raise Exception("openapi_url is not set")
     return get_redoc_html(
         openapi_url=app.openapi_url,
         title=app.title + " - ReDoc",

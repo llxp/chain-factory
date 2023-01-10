@@ -1,7 +1,8 @@
 from distutils.log import debug
 from odmantic import AIOEngine, Model, Field, EmbeddedModel
+from odmantic.engine import AIOCursor
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional, Union
 
 from ..utils.credentials import get_domain
 
@@ -21,15 +22,15 @@ class IdpDomainConfig(Model):
     created: datetime = Field(default=datetime.utcnow())
     updated: datetime = Field(default=datetime.utcnow())
     domain: str
-    endpoints: IdpEndpointConfig = None
-    client_cert_config: IdpClientCertConfig = None
+    endpoints: IdpEndpointConfig = Field(default=None)
+    client_cert_config: IdpClientCertConfig = Field(default=None)
 
     @classmethod
     async def get(
         cls: type,
         database: AIOEngine,
         username: str
-    ) -> List['IdpDomainConfig']:
+    ) -> Union[AIOCursor['IdpDomainConfig'], None]:
         debug(f"get idp domain config for user {username}")
         domain = await get_domain(username)
         if domain:

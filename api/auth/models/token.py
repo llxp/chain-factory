@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import Any, Dict, List, Optional, Type
 from datetime import datetime, timedelta, timezone
 from calendar import timegm
 from uuid import uuid4
@@ -31,21 +31,21 @@ def tgm(t: tuple = now_tuple()) -> int:
 class Token(BaseModel):
     iss: str = ''
     sub: str = ''
-    aud: List[str] = ''
-    exp: int = Field(default_factory=lambda: tgm(now_plus_minutes(15)))
+    aud: List[str] = []
+    exp: int = Field(default_factory=lambda: tgm(now_plus_minutes(60)))
     nbf: int = Field(default_factory=lambda: tgm())
     iat: int = Field(default_factory=lambda: tgm())
     jti: str = Field(default_factory=lambda: str(uuid4()))
 
     @ classmethod
-    def from_string(cls: type, token: str, key: str, scope: str) -> 'Token':
+    def from_string(cls: Type['Token'], token: str, key: str, scope: str) -> Optional['Token']:  # noqa: E501
         decoded_token = cls.decode_token_string(token, key, scope)
         if decoded_token:
             return Token(**decoded_token)
         return None
 
     @ staticmethod
-    def decode_token_string(token: str, key: str, scope: str) -> str:
+    def decode_token_string(token: str, key: str, scope: str) -> Optional[Dict[str, Any]]:  # noqa: E501
         try:
             return decode(
                 token,
@@ -83,8 +83,6 @@ class TokenResponse(BaseModel):
         scopes: List[str],
         server_secret: str
     ) -> 'TokenResponse':
-        if not scopes:
-            return None
         token = Token(
             iss=hostname,
             sub=username,

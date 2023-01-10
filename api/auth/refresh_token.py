@@ -43,7 +43,9 @@ async def create_token(
     if db_token:
         username = token.username
         scopes = db_token.scopes
-        return TokenResponse.create_token(hostname, username, scopes, key)
+        if scopes:
+            return TokenResponse.create_token(hostname, username, scopes, key)
+        raise HTTPException(status_code=403, detail='Scopes missing in refresh token')  # noqa: E501
     raise HTTPException(status_code=401, detail='Token is revoked')
 
 

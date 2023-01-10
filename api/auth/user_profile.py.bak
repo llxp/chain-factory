@@ -4,7 +4,7 @@ from odmantic import AIOEngine
 from .login import get_user_information
 
 from .utils.request import get_odm_session, get_idp_credentials
-from .depends import CheckScope
+from .depends import CheckScope, get_username
 from .models.idp_domain_config import IdpDomainConfig
 from .models.idp_role_config import IdpRoleConfig
 from .models.credentials import Credentials
@@ -19,8 +19,7 @@ async def get_scopes_by_config(
     idp_config: IdpDomainConfig,
     user_information: UserInformation
 ):
-    roles = await IdpRoleConfig.by_user(
-        database, user_information, idp_config.domain)
+    roles = await IdpRoleConfig.by_user(database, user_information, idp_config.domain)  # noqa: E501
     scopes_lists = [role.scopes for role in roles]
     scopes_list_flat = [scope for scopes in scopes_lists for scope in scopes]
     return set(scopes_list_flat)
@@ -47,9 +46,9 @@ async def get_user_information_by_config(
 @api.get('/user_profile', dependencies=[Depends(CheckScope('user'))])
 async def user_profile(
     database: AIOEngine = Depends(get_odm_session),
-    idp_credentials: Credentials = Depends(get_idp_credentials)
+    idp_credentials: Credentials = Depends(get_idp_credentials),
+    username: str = Depends(get_username)
 ):
-    username = idp_credentials.username
     idp_config_cursor = await IdpDomainConfig.get(database, username)
     if idp_config_cursor:
         async for idp_config in idp_config_cursor:

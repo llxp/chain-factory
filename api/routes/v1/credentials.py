@@ -34,7 +34,7 @@ user_role = Depends(CheckScope(scope='user'))
 @api.post(
     "/{namespace}/credentials",
     summary="Create credentials for a namespace",
-    response_model=Union[str, dict],
+    response_model=Union[str, dict],  # type: ignore
     dependencies=[user_role]
 )
 async def create_credentials(
@@ -60,7 +60,7 @@ async def create_credentials(
                 database, namespace, namespace_obj.domain)
             info(f"existing credentials for {namespace} deleted")
         else:
-            info(f"credentials for namepace {namespace} not found")
+            info(f"credentials for namespace {namespace} not found")
         domain = namespace_obj.domain
         password = await ManagementCredentials.new(
             database, rabbitmq_management_api, redis_client,
@@ -92,7 +92,7 @@ async def get_credentials(
     namespace: str,
     key: str,
     database: AIOEngine = Depends(get_odm_session)
-) -> Union[str, dict]:
+) -> ManagementCredentials:
     """
     Get credentials for the current user.
     1. check, if the current user has access to the requested namespace
@@ -102,17 +102,18 @@ async def get_credentials(
     5. return the credentials
     """
     info("namespace found")
-    credentials: ManagementCredentials = await ManagementCredentials.get(
-        database, namespace)
-    if credentials:
+    credentials: Union[ManagementCredentials, None] = await ManagementCredentials.get(database, namespace)  # noqa: E501
+    if credentials:  # noqa: E501
         info("credentials found")
         # decrypt the credentials
         try:
             info(f"key: {key}")
-            credentials_data: str = decrypt(credentials.credentials, key)
-            credentials_data = ManagementCredentialsCollection.parse_raw(
-                credentials_data)
-            credentials.credentials = credentials_data
+            decryption_result: bytes = b''
+            if isinstance(credentials.credentials, str):
+                decryption_result = decrypt(credentials.credentials, key)
+            credentials_data: str = decryption_result.decode('utf-8')  # noqa: E501
+            credentials_data_obj = ManagementCredentialsCollection.parse_raw(credentials_data)  # noqa: E501
+            credentials.credentials = credentials_data_obj
             return credentials
         except Exception as e:
             exception(e)

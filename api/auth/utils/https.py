@@ -1,5 +1,5 @@
 from os import path
-from typing import Tuple
+from typing import Literal, Tuple, Union
 from urllib import parse
 
 from .base64 import decode_write_b64
@@ -36,13 +36,13 @@ async def get_client_certificates(
     return cert_path, key_path
 
 
-async def get_ca_server_certificates():
+async def get_ca_server_certificates() -> str:
     current_path = path.dirname(path.realpath(__file__))
     pki_path = path.join(current_path, 'pki')
     ca_path = path.join(pki_path, 'ca.pem')
     if await file_exists(ca_path):
         return ca_path
-    return None
+    return ""
 
 
 def is_https(url: str):
@@ -57,7 +57,7 @@ async def get_https_certificates(url: str, config: IdpDomainConfig):
     return None
 
 
-async def get_ca_certificates(url: str):
+async def get_ca_certificates(url: str) -> Union[str, Literal[False]]:
     if url and is_https(url):
         return await get_ca_server_certificates()
     return False

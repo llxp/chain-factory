@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from httpx import ConnectError, ConnectTimeout
 from odmantic import AIOEngine
 from httpx import AsyncClient
-from typing import List
+from typing import List, Union
 from jose.jwe import encrypt
 from pydantic import ValidationError
 from ssl import SSLCertVerificationError
@@ -40,13 +40,13 @@ async def login(
         # and then get the user information
         if idp_configs:
             debug(f"idp config found: {len(await idp_configs)}")
-            config: IdpDomainConfig = None
+            config: Union[IdpDomainConfig, None] = None
             async for config in idp_configs:
                 debug(f"idp config found: {config.domain}")
                 user_information = await get_user_information(
                     credentials, config)
                 if user_information:
-                    hostname = request.url.hostname
+                    hostname = request.url.hostname or ""
                     info(user_information)
                     access_token = await create_token(
                         hostname,
@@ -67,7 +67,7 @@ async def login(
                     response.set_cookie(
                         key='Authorization',
                         value='Bearer ' + access_token.token,
-                        max_age=60 * 15,  # cookie will expire in 15 minutes
+                        max_age=60 * 60,  # cookie will expire in 60 minutes
                         httponly=True,
                         samesite='none',
                         secure=True,
@@ -88,12 +88,12 @@ async def login(
 async def get_user_information(
     credentials: Credentials,
     idp_config: IdpDomainConfig
-) -> UserInformation:
+) -> Union[UserInformation, None]:
     headers = {'content-type': 'application/json'}
-    url = idp_config.endpoints.user_information_endpoint
+    url = idp_config.endpoints.user_information_endpoint or ""
     client_certificates = await get_https_certificates(url, idp_config)
-    ca_certificates = await get_ca_certificates(url)  # noqa
-    async with AsyncClient(cert=client_certificates, verify=False) as client:
+    ca_certificates = await get_ca_certificates(url)  # noqa: E501
+    async with AsyncClient(cert=client_certificates, verify=ca_certificates) as client:  # noqa: E501
         try:
             response = await perform_user_information_request(
                 credentials, headers, client, url)
@@ -117,26 +117,25 @@ async def perform_user_information_request(
     headers: dict,
     client: AsyncClient,
     url: str
-):
+) -> Union[UserInformation, None]:
     if url:
         credentials_json = credentials.json()
-        user_information_response = await client.post(
-            url=url, data=credentials_json, headers=headers, timeout=10)
+        user_information_response = await client.post(url=url, data=credentials_json, headers=headers, timeout=10)  # type: ignore  # noqa: E501
         if user_information_response.status_code == 200:
             response = user_information_response.json()
             try:
                 return UserInformation(**response)
             except ValidationError:
                 return None
+        error(f"response was: {user_information_response.text}")
     error(f"user information request failed: {url}")
-    error(f"response was: {user_information_response.text}")
     return None
 
 
 def get_scopes(
     scopes: List[str] = [],
     roles: List[IdpRoleConfig] = []
-) -> List[str]:
+) -> Union[List[str], None]:
     if not scopes:
         return None
     allowed_scopes: List[str] = []
@@ -164,13 +163,12 @@ async def create_token(
     roles = await IdpRoleConfig.by_user(database, user_information, domain)
     # a role has a group of scopes
     # aud/audience is the list of scopes
-    requested_scopes = credentials.scopes
-    allowed_scopes = get_scopes(requested_scopes, roles)
+    requested_scopes = credentials.scopes or []
+    allowed_scopes = get_scopes(requested_scopes, roles) or []
     token_response = TokenResponse.create_token(
         hostname, credentials.username, allowed_scopes, server_secret)
     if not token_response:
-        raise HTTPException(
-            status_code=400, detail='no scopes requested')
+        raise HTTPException(status_code=400, detail='no scopes requested')  # noqa: E501
     return token_response
 
 
@@ -181,7 +179,7 @@ async def create_refresh_token(
     credentials: LoginRequest
 ):
     token = CredentialsToken(
-        iss=hostname,
+        iss=hostname,  # type: ignore
         username=credentials.username,
         password=credentials.password,
     )
@@ -193,9 +191,10 @@ async def create_refresh_token(
         scopes=credentials.scopes
     )
     await database.save(new_refresh_token)
-    return encrypt(
+    encrypted_bytes = encrypt(
         plaintext=token.json(),
         key=server_secret,
         algorithm='dir',
         encryption='A256CBC-HS512',
     )
+    return encrypted_bytes.decode('utf-8')

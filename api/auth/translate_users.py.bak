@@ -1,8 +1,8 @@
 from logging import debug
+from typing import Optional
 from fastapi import Depends, APIRouter, HTTPException
 from odmantic import AIOEngine
 from httpx import AsyncClient
-from json import dumps
 from cgi import parse_header
 
 from .models.translate_users_response import TranslateUsersResponse
@@ -29,7 +29,7 @@ async def translate_users(
         idp_config_list = await IdpDomainConfig.get(database, username)
         if idp_config_list:
             # type hint for syntax highlighting
-            idp_config: IdpDomainConfig = None
+            idp_config: Optional[IdpDomainConfig] = None
             async for idp_config in idp_config_list:
                 if (
                     idp_config and
@@ -41,13 +41,14 @@ async def translate_users(
                         idp_config
                     )
                     async with AsyncClient(cert=client_certificates) as client:
+                        data_json: dict = {
+                            'username': idp_credentials.username,
+                            'password': idp_credentials.password,
+                            'user_ids': user_ids
+                        }
                         translate_users_response = await client.post(
                             idp_config.endpoints.translate_users_endpoint,
-                            data=dumps({
-                                'username': idp_credentials.username,
-                                'password': idp_credentials.password,
-                                'user_ids': user_ids
-                            }),
+                            data=data_json,
                             headers=headers
                         )
 
