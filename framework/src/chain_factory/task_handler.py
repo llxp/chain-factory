@@ -1,33 +1,49 @@
-from typing import Dict, Union, List
+from typing import Dict
+from typing import Union
+from typing import List
 from datetime import datetime
 from time import sleep
-from logging import info, debug, warning, error
+from logging import info
+from logging import debug
+from logging import warning
+from logging import error
 from threading import Lock
 from odmantic import AIOEngine
 from inspect import signature
-from asyncio import AbstractEventLoop, ensure_future
+from asyncio import AbstractEventLoop
+from asyncio import ensure_future
 
+# direct imports
 from .task_runner import TaskRunner
-from .wrapper.list_handler import ListHandler
 from .queue_handler import QueueHandler
 from .argument_excluder import ArgumentExcluder
 
 # wrapper
-from .wrapper.rabbitmq import RabbitMQ, Message, getPublisher
+from .wrapper.rabbitmq import RabbitMQ
+from .wrapper.rabbitmq import Message
+from .wrapper.rabbitmq import getPublisher
 from .wrapper.redis_client import RedisClient
 from .wrapper.bytes_io_wrapper import BytesIOWrapper
 from .wrapper.interruptable_thread import ThreadAbortException
+from .wrapper.list_handler import ListHandler
 
 # settings
 from .common.settings import sticky_tasks
 from .common.settings import wait_time
 from .common.settings import incoming_block_list_redis_key
 
-# common
-from .models.mongodb_models import ArgumentType, TaskReturnType, TaskRunnerReturnType, CallbackType  # noqa: E501
+# data types
+from .models.mongodb_models import ArgumentType
+from .models.mongodb_models import TaskReturnType
+from .models.mongodb_models import TaskRunnerReturnType
+from .models.mongodb_models import CallbackType
 
 # models
-from .models.mongodb_models import Task, TaskStatus, WorkflowStatus, TaskWorkflowAssociation, Workflow  # noqa: E501
+from .models.mongodb_models import Task
+from .models.mongodb_models import TaskStatus
+from .models.mongodb_models import WorkflowStatus
+from .models.mongodb_models import TaskWorkflowAssociation
+from .models.mongodb_models import Workflow
 
 
 wait_time = int(wait_time)
@@ -370,8 +386,10 @@ class TaskHandler(QueueHandler):
         await self.ack(message)
         return None
 
-    async def _send_to_queue(self, queue: RabbitMQ, message: Message, task: Task):  # noqa: E501
+    async def _send_to_queue(self, queue: Union[RabbitMQ, None], message: Message, task: Task):  # noqa: E501
         await self.ack(message)
+        if queue is None:
+            raise Exception("_send_to_queue: RabbitMQ is None")
         await queue.send(task.json())
 
     async def _handle_rejected(self, requested_task: Task, message: Message):

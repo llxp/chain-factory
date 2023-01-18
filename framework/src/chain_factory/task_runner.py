@@ -1,17 +1,32 @@
 from typing import Dict
 from json import dumps
-from logging import error, info, debug, exception, warning
+from logging import error
+from logging import info
+from logging import debug
+from logging import exception
+from logging import warning
 from traceback import print_exc
 from sys import stdout
-from time import sleep, time
+from time import sleep
+from time import time
 from io import BytesIO
 from threading import Lock
 
-from .models.mongodb_models import Task, ArgumentType, CallbackType, TaskRunnerReturnType, TaskReturnType, NormalizedTaskReturnType  # noqa: E501
-from .wrapper.interruptable_thread import ThreadAbortException
-from .wrapper.redis_client import RedisClient
+# direct imports
 from .task_thread import TaskThread
 from .task_control_thread import TaskControlThread
+
+# wrapper
+from .wrapper.interruptable_thread import ThreadAbortException
+from .wrapper.redis_client import RedisClient
+
+# models
+from .models.mongodb_models import Task
+from .models.mongodb_models import ArgumentType
+from .models.mongodb_models import CallbackType
+from .models.mongodb_models import TaskRunnerReturnType
+from .models.mongodb_models import TaskReturnType
+from .models.mongodb_models import NormalizedTaskReturnType
 
 
 class TaskRunner():

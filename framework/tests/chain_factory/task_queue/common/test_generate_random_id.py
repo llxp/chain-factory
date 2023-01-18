@@ -1,5 +1,5 @@
 import unittest
-from framework.src.chain_factory.task_queue.common.generate_random_id import generate_random_id  # noqa: E501
+from framework.src.chain_factory.common.generate_random_id import generate_random_id  # noqa: E501
 
 
 class GenerateRandomIdTest(unittest.TestCase):

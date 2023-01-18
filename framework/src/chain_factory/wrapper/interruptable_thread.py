@@ -4,8 +4,12 @@ https://stackoverflow.com/questions/14482230/why-does-the-python-threading
 -thread-object-has-start-but-not-stop?noredirect=1&lq=1
 """
 
-from _thread import interrupt_main, exit as thread_exit
-from ctypes import pythonapi, c_ulong, py_object, c_int
+from _thread import interrupt_main
+from _thread import exit as thread_exit
+from ctypes import pythonapi
+from ctypes import c_ulong
+from ctypes import py_object
+from ctypes import c_int
 from threading import Thread
 
 _PyThreadState_SetAsyncExc = pythonapi.PyThreadState_SetAsyncExc

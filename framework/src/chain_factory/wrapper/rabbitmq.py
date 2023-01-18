@@ -1,22 +1,33 @@
-from asyncio import AbstractEventLoop, get_event_loop, new_event_loop  # noqa: E501
+from asyncio import AbstractEventLoop
+from asyncio import get_event_loop
+from asyncio import new_event_loop
+from asyncio import ensure_future
 from dataclasses import dataclass
-from logging import debug, error, info
+from logging import debug
+from logging import error
+from logging import info
 from traceback import print_exc
 from sys import stdout
-from typing import Awaitable, Callable, Dict, Any, Optional, Union
+from typing import Awaitable
+from typing import Callable
+from typing import Dict
+from typing import Any
+from typing import Optional
+from typing import Union
 from _thread import interrupt_main
 from _thread import start_new_thread
-from aio_pika import (
-    Queue, connect_robust,
-    IncomingMessage, Message as AioPikaMessage,
-    DeliveryMode, Channel
-)
+from aio_pika import Queue
+from aio_pika import connect_robust
+from aio_pika import IncomingMessage
+from aio_pika import Message as AioPikaMessage
+from aio_pika import DeliveryMode
+from aio_pika import Channel
 from aio_pika.connection import Connection
-from aio_pika.exceptions import (
-    AMQPConnectionError, ChannelInvalidStateError, DuplicateConsumerTag
-)
-from asyncio import ensure_future
+from aio_pika.exceptions import AMQPConnectionError
+from aio_pika.exceptions import ChannelInvalidStateError
+from aio_pika.exceptions import DuplicateConsumerTag
 
+# settings
 from ..common.settings import prefetch_count
 
 

@@ -1,5 +1,9 @@
+# wrapper
+from .wrapper.rabbitmq import RabbitMQ
+from .wrapper.rabbitmq import getPublisher
+
+# models
 from .models.mongodb_models import Task
-from .wrapper.rabbitmq import RabbitMQ, getPublisher
 
 
 class TaskStarter:

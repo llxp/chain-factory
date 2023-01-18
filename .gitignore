@@ -27,3 +27,13 @@ misc/
 certs/
 worker/
 kubeconfig*
+.*
+*_old/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info
+*.egg
+*.log

@@ -1,7 +1,14 @@
 from typing import Optional
+
+# direct imports
 from .redis_client import RedisClient
-from ..models.list_item_container import ListItem, ListItemContainer
+
+# models
 from ..decorators.parse_catcher import parse_catcher
+
+# models
+from ..models.list_item_container import ListItem
+from ..models.list_item_container import ListItemContainer
 
 
 class ListHandler:

@@ -1,22 +1,35 @@
-from typing import Dict
-from asyncio import AbstractEventLoop, new_event_loop
+"""
+This File has the main class for the chain-factory framework
+"""
 
-from .task_starter import TaskStarter
+
+# from typing import Dict
+from asyncio import AbstractEventLoop
+from asyncio import new_event_loop
+from logging import debug
+from typing import Optional
+
+# direct imports
+# from .task_starter import TaskStarter
 from .task_queue_handlers import TaskQueueHandlers
-# import the settings
-from .common.settings import \
-    worker_count as default_worker_count, \
-    task_timeout as default_task_timeout, \
-    task_repeat_on_timeout as default_task_repeat_on_timeout, \
-    namespace as default_namespace, \
-    namespace_key as default_namespace_key
-from .common.generate_random_id import generate_random_id
-from .credentials_retriever import CredentialsRetriever
+# from .credentials_retriever import CredentialsRetriever
+
+# settings
+from .common.settings import worker_count as default_worker_count
+from .common.settings import task_timeout as default_task_timeout
+from .common.settings import task_repeat_on_timeout as default_task_repeat_on_timeout  # noqa: E501
+from .common.settings import namespace as default_namespace
+from .common.settings import namespace_key as default_namespace_key
 
 
-class TaskQueue():
+class ChainFactory():
     """
     Main Class for the chain-factory framework
+
+    This class is used
+        to initialize the framework by creating a new instance of the class
+        to register tasks and
+        to start listening
     """
 
     def __init__(
@@ -24,12 +37,12 @@ class TaskQueue():
         endpoint: str,
         username: str,
         password: str,
+        node_name: str,
         namespace: str = default_namespace,
         namespace_key: str = default_namespace_key,
         worker_count: int = default_worker_count,
         task_timeout: int = default_task_timeout,
         task_repeat_on_timeout: bool = default_task_repeat_on_timeout,
-        node_name: str = generate_random_id()
     ):
         """
         Initialises chain-factory framework
@@ -44,7 +57,7 @@ class TaskQueue():
         self.namespace = namespace
         self.namespace_key = namespace_key
         # task starter
-        self._task_starter: Dict[str, TaskStarter] = {}
+        # self._task_starter: Dict[str, TaskStarter] = {}
         self.task_queue_handlers: TaskQueueHandlers = TaskQueueHandlers(
             namespace=self.namespace,
             namespace_key=self.namespace_key,
@@ -56,46 +69,47 @@ class TaskQueue():
             task_timeout=self.task_timeout,
         )
 
-    async def start_new_task(
-        self,
-        task_name: str,
-        arguments: dict,
-        namespace: str = "",
-        namespace_key: str = ""
-    ):
-        """
-        starts a new task by name
-        (can be e.g. used
-        to start a task of a different namespace)
-        """
-        if namespace is None:
-            namespace = self.namespace
-        if namespace_key is None:
-            namespace_key = self.namespace_key
-        credentials: CredentialsRetriever = \
-            await self.task_queue_handlers._credentials_pool.get_credentials(
-                namespace, namespace_key)
-        rabbitmq_url = credentials.rabbitmq
-        try:
-            await self._task_starter[namespace].start_task(
-                task_name, arguments)
-        except KeyError:
-            self._task_starter[namespace] = TaskStarter(
-                namespace=namespace,
-                rabbitmq_url=rabbitmq_url,
-            )
-            await self._task_starter[namespace].start_task(task_name, arguments)  # noqa: E501
+    # async def start_new_task(
+    #     self,
+    #     task_name: str,
+    #     arguments: dict,
+    #     namespace: str = "",
+    #     namespace_key: str = ""
+    # ):
+    #     """
+    #     starts a new task by name
+    #     (can be e.g. used
+    #     to start a task of a different namespace)
+    #     """
+    #     if namespace is None:
+    #         namespace = self.namespace
+    #     if namespace_key is None:
+    #         namespace_key = self.namespace_key
+    #     credentials: CredentialsRetriever = \
+    #         await self.task_queue_handlers._credentials_pool.get_credentials(
+    #             namespace, namespace_key)
+    #     rabbitmq_url = credentials.rabbitmq
+    #     try:
+    #         await self._task_starter[namespace].start_task(
+    #             task_name, arguments)
+    #     except KeyError:
+    #         self._task_starter[namespace] = TaskStarter(
+    #             namespace=namespace,
+    #             rabbitmq_url=rabbitmq_url,
+    #         )
+    #         await self._task_starter[namespace].start_task(task_name, arguments)  # noqa: E501
 
-    async def wait_for_task(
-        self,
-        namespace: str,
-        task_name: str,
-        arguments: dict
-    ):
-        """
-        waits for a task to complete
-        """
-        await self.task_queue_handlers.wait_for_task(namespace, task_name, arguments)  # noqa: E501
+    # async def wait_for_task(
+    #     self,
+    #     namespace: str,
+    #     task_name: str,
+    #     arguments: dict
+    # ):
+    #     """
+    #     waits for a task to complete
+    #     TODO: Needs to be reimplemented, as the current logic is not working, so the method is commented out  # noqa: E501
+    #     """
+    #     await self.task_queue_handlers.wait_for_task(namespace, task_name, arguments)  # noqa: E501
 
     def task(
         self,
@@ -143,6 +157,8 @@ class TaskQueue():
     async def listen(self, loop: AbstractEventLoop):
         """
         Initialises the queue and starts listening
+
+        - Will be invoked by the `run` method
         """
         self._update_task_queue_handlers(loop)
         await self.task_queue_handlers.listen()
@@ -160,18 +176,23 @@ class TaskQueue():
         self.task_queue_handlers.namespace_key = self.namespace_key
         self.task_queue_handlers.node_name = self.node_name
 
-    def run(self):
+    def run(self, loop: Optional[AbstractEventLoop] = None):
         """
         Runs the task queue:
 
-        - Starts the event loop
+        - Starts a new event loop or uses a provided one
         - Starts listening for tasks
         - and stops the event loop on keyboard interrupt
         """
-        loop = new_event_loop()
+        loop_provided = True
+        if loop is None:
+            loop = new_event_loop()
+            loop_provided = False
         try:
             loop.create_task(self.listen(loop))
-            loop.run_forever()
+            if not loop_provided:
+                debug("Starting event loop")
+                loop.run_forever()
         except KeyboardInterrupt:
             loop.run_until_complete(self.task_queue_handlers.stop_node())
         finally:

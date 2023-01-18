@@ -1,4 +1,5 @@
-from uuid import uuid1, uuid4
+from uuid import uuid1
+from uuid import uuid4
 
 
 def generate_random_id() -> str:

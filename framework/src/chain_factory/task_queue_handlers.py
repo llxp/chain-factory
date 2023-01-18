@@ -1,25 +1,33 @@
 from asyncio import AbstractEventLoop
-from logging import info, shutdown as shutdown_log
+from logging import info
+from logging import shutdown as shutdown_log
 from time import sleep
-from typing import Dict, Optional, Union
+from typing import Optional
+from typing import Union
+# from typing import Dict
 
-from .wrapper.mongodb_client import MongoDBClient
-
-from .credentials_retriever import CredentialsRetriever
-from .task_handler import TaskHandler
-from .cluster_heartbeat import ClusterHeartbeat
+# direct imports
+# from .task_waiter import TaskWaiter
+# from .credentials_retriever import CredentialsRetriever
 from .client_pool import ClientPool
+from .node_registration import NodeRegistration
+from .credentials_pool import CredentialsPool
+from .cluster_heartbeat import ClusterHeartbeat
+# queue handlers
 from .blocked_handler import BlockedHandler
 from .wait_handler import WaitHandler
-from .node_registration import NodeRegistration
-from .task_waiter import TaskWaiter
-from .credentials_pool import CredentialsPool
-from .common.settings import (
-    incoming_block_list_redis_key, wait_block_list_redis_key,
-    wait_queue as wait_queue_default, task_queue as task_queue_default,
-    incoming_blocked_queue as incoming_blocked_queue_default,
-    wait_blocked_queue as wait_blocked_queue_default,
-)
+from .task_handler import TaskHandler
+
+# wrapper
+# from .wrapper.mongodb_client import MongoDBClient
+
+# settings
+from .common.settings import incoming_block_list_redis_key
+from .common.settings import wait_block_list_redis_key
+from .common.settings import wait_queue as wait_queue_default
+from .common.settings import task_queue as task_queue_default
+from .common.settings import incoming_blocked_queue as incoming_blocked_queue_default  # noqa: E501
+from .common.settings import wait_blocked_queue as wait_blocked_queue_default
 
 
 class TaskQueueHandlers():
@@ -45,8 +53,8 @@ class TaskQueueHandlers():
         self._wait_handler = WaitHandler()
         self._incoming_blocked_handler = BlockedHandler()
         self._wait_blocked_handler = BlockedHandler()
-        self.task_queue_clients = ClientPool()
-        self._task_waiter: Dict[str, TaskWaiter] = {}
+        self.client_pool = ClientPool()
+        # self._task_waiter: Dict[str, TaskWaiter] = {}
         self._credentials_pool = CredentialsPool(endpoint, username, password, {namespace: namespace_key})  # noqa: E501
         self.loop: Optional[AbstractEventLoop] = loop
         self.cluster_heartbeat: Union[ClusterHeartbeat, None] = None
@@ -88,11 +96,11 @@ class TaskQueueHandlers():
         return wait_block_list_redis_key
 
     async def redis_client(self):
-        return await self.task_queue_clients.redis_client()
+        return await self.client_pool.redis_client()
 
     @property
     def mongodb_client(self):
-        return self.task_queue_clients.mongodb_client
+        return self.client_pool.mongodb_client
 
     async def init(self):
         """
@@ -108,7 +116,7 @@ class TaskQueueHandlers():
         if self.loop is None:
             raise Exception("No loop provided")
         # init redis and mongodb connections
-        await self.task_queue_clients.init(
+        await self.client_pool.init(
             redis_url=self.credentials.redis,
             key_prefix=self.credentials.redis_prefix,
             mongodb_url=self.credentials.mongodb,
@@ -187,6 +195,8 @@ class TaskQueueHandlers():
         """
         if self.loop is None:
             raise Exception("No loop provided")
+        if self.mongodb_client is None:
+            raise Exception("No mongodb client provided")
         await self._task_handler.init(
             mongodb_client=self.mongodb_client.client,
             rabbitmq_url=rabbitmq_url,
@@ -205,7 +215,7 @@ class TaskQueueHandlers():
         """
         if self.loop is None:
             raise Exception("No loop provided")
-        self.cluster_heartbeat = ClusterHeartbeat(self.namespace, self.node_name, self.task_queue_clients, self.loop)  # noqa: E501
+        self.cluster_heartbeat = ClusterHeartbeat(self.namespace, self.node_name, self.client_pool, self.loop)  # noqa: E501
 
     async def listen(self):
         """
@@ -235,11 +245,11 @@ class TaskQueueHandlers():
         if running_workflows_counter >= task_runner_count:
             info("node is dry")
             await self.stop_heartbeat()
-            await self.task_queue_clients.close()
+            await self.client_pool.close()
             redis_client = await self.redis_client()
             await redis_client.close()
-            await self._task_handler.rabbitmq.close()
-            await self._wait_handler.rabbitmq.close()
+            await self._task_handler.close()
+            await self._wait_handler.close()
             shutdown_log()
 
     def count_running_tasks(self):
@@ -252,9 +262,11 @@ class TaskQueueHandlers():
         return running_workflows_counter
 
     async def _init_registration(self):
+        if self.mongodb_client is None:
+            raise Exception("No mongodb client provided")
         self._node_registration = NodeRegistration(
             self.namespace,
-            self.task_queue_clients.mongodb_client.client,
+            self.mongodb_client.client,
             self.node_name,
             self._task_handler
         )
@@ -275,19 +287,20 @@ class TaskQueueHandlers():
         await self._wait_blocked_handler.listen()
         await self._task_handler.listen()
 
-    async def wait_for_task(
-        self,
-        namespace: str,
-        task_name: str,
-        arguments: dict
-    ):
-        """
-        - waits for the task to complete
-        """
-        credentials: CredentialsRetriever = await self._credentials_pool.get_credentials(namespace)  # noqa: E501
-        mongodb_credentials = credentials.mongodb
-        if namespace not in self._task_waiter:
-            mongodb_client = MongoDBClient(mongodb_credentials)
-            self._task_waiter[namespace] = TaskWaiter(mongodb_client)
-        task_waiter: TaskWaiter = self._task_waiter[namespace]
-        await task_waiter.wait_for_task_name(task_name, arguments)
+    # async def wait_for_task(
+    #     self,
+    #     namespace: str,
+    #     task_name: str,
+    #     arguments: dict
+    # ):
+    #     """
+    #     - waits for the task to complete
+    #     TODO: needs to be reimplemented, as the waiting for a task by name does not make sense anymore  # noqa: E501
+    #     """
+    #     credentials: CredentialsRetriever = await self._credentials_pool.get_credentials(namespace)  # noqa: E501
+    #     mongodb_credentials = credentials.mongodb
+    #     if namespace not in self._task_waiter:
+    #         mongodb_client = MongoDBClient(mongodb_credentials)
+    #         self._task_waiter[namespace] = TaskWaiter(mongodb_client)
+    #     task_waiter: TaskWaiter = self._task_waiter[namespace]
+    #     await task_waiter.wait_for_task_name(task_name, arguments)

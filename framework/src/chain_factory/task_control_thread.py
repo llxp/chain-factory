@@ -1,9 +1,14 @@
 from logging import warning
 
+# direct imports
 from .control_thread import ControlThread
-from .common.settings import task_control_channel_redis_key
 from .task_thread import TaskThread
+
+# wrapper
 from .wrapper.redis_client import RedisClient
+
+# settings
+from .common.settings import task_control_channel_redis_key
 
 
 class TaskControlThread(ControlThread):

@@ -1,20 +1,29 @@
 from abc import abstractmethod
 from asyncio import AbstractEventLoop
 from datetime import datetime
-from logging import error, debug
+from logging import error
+from logging import debug
 from traceback import print_exc
-from sys import exit, stderr
+from sys import exit
+from sys import stderr
 from typing import Union
 from aio_pika.exceptions import AMQPConnectionError
 
-from .wrapper.rabbitmq import RabbitMQ, Message, getConsumer
-from .models.mongodb_models import Task
+# decorators
 from .decorators.parse_catcher import parse_catcher
+
+# wrapper
+from .wrapper.rabbitmq import RabbitMQ
+from .wrapper.rabbitmq import Message
+from .wrapper.rabbitmq import getConsumer
+
+# models
+from .models.mongodb_models import Task
 
 
 class QueueHandler:
     def __init__(self):
-        self.rabbitmq: RabbitMQ = None
+        self.rabbitmq: Union[RabbitMQ, None] = None
 
     async def init(self, url: str, queue_name: str, loop: AbstractEventLoop):
         """
@@ -27,12 +36,16 @@ class QueueHandler:
         if self.rabbitmq:
             self.rabbitmq.stop_callback()
 
+    async def close(self):
+        if self.rabbitmq:
+            await self.rabbitmq.close()
+
     async def _connect(self, url: str, loop: AbstractEventLoop):
         """
         Connects to rabbitmq
         """
         try:
-            self.rabbitmq: RabbitMQ = getConsumer(rabbitmq_url=url, queue_name=self.queue_name, callback=self._on_message, loop=loop)  # noqa: E501
+            self.rabbitmq = getConsumer(rabbitmq_url=url, queue_name=self.queue_name, callback=self._on_message, loop=loop)  # noqa: E501
             await self.rabbitmq.init()
         except AMQPConnectionError:
             print_exc(file=stderr)
@@ -42,6 +55,8 @@ class QueueHandler:
         """
         starts listening on the queue
         """
+        if self.rabbitmq is None:
+            raise ValueError("RabbitMQ is not initialized")
         await self.rabbitmq.listen()
 
     async def reschedule(self, message: Message):
@@ -58,23 +73,29 @@ class QueueHandler:
         return datetime.utcnow()
 
     @staticmethod
-    async def send_to_queue(task: Task, rabbitmq: RabbitMQ):
+    async def send_to_queue(task: Task, rabbitmq: Union[RabbitMQ, None]):
         """
         Send a task to the specified queue
         """
         task.received_date = QueueHandler._now()
+        if rabbitmq is None:
+            raise ValueError("RabbitMQ is not initialized")
         return await rabbitmq.send(message=task.json())
 
     async def ack(self, message: Message):
         """
         Acknowledges the specified message
         """
+        if self.rabbitmq is None:
+            raise ValueError("RabbitMQ is not initialized")
         await self.rabbitmq.ack(message=message)
 
     async def nack(self, message: Message):
         """
         Rejects the specified message
         """
+        if self.rabbitmq is None:
+            raise ValueError("RabbitMQ is not initialized")
         await self.rabbitmq.nack(message=message)
 
     @abstractmethod
@@ -100,7 +121,7 @@ class QueueHandler:
         """
         debug("callback_impl in queue_handler called")
         # parse the message body to Task
-        task: Task = self._parse_json(body=message.body)
+        task = self._parse_json(body=message.body)
         task_json = task.json() if task is not None else "None"
         debug(f"task: {task_json}")
         return await self._on_message_check_task(task, message)
@@ -126,7 +147,7 @@ class QueueHandler:
         and returns them after logging to the amqp library
         """
         debug("on_task will be called")
-        result: Task = await self.on_task(task, message)
+        result = await self.on_task(task, message)
         return self._on_task_check_task_result(result)
 
     def _on_task_check_task_result(self, result: Union[Task, None]):

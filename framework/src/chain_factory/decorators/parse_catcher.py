@@ -1,7 +1,8 @@
 from sys import stdout
 from traceback import print_exc
 from logging import exception
-from typing import Tuple, Type
+from typing import Tuple
+from typing import Type
 
 
 def parse_catcher(errors: Tuple[Type[Exception], ...] = (Exception, )):

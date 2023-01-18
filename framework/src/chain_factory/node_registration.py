@@ -1,11 +1,21 @@
-from inspect import Signature, signature
-from typing import Callable, Dict, List
-
+from inspect import Signature
+from inspect import signature
+from typing import Dict
+from typing import List
 from odmantic import AIOEngine
-from .models.mongodb_models import Task, NodeTasks, RegisteredTask
-from .task_runner import TaskRunner
+
+# direct imports
 from .task_handler import TaskHandler
-from .common.settings import unique_hostnames, force_register
+from .task_runner import TaskRunner
+
+# models
+from .models.mongodb_models import NodeTasks
+from .models.mongodb_models import RegisteredTask
+from .models.mongodb_models import CallbackType
+
+# settings
+from .common.settings import unique_hostnames
+from .common.settings import force_register
 
 
 class NodeRegistration():
@@ -73,7 +83,7 @@ class NodeRegistration():
     async def _registered_task(
         self,
         task_name: str,
-        callback: Callable[..., Task]
+        callback: CallbackType
     ):
         """
         Inspect given callback and return a RegisteredTask object

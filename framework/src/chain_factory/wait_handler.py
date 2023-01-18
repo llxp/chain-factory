@@ -1,14 +1,29 @@
-from asyncio import AbstractEventLoop, sleep
-from datetime import datetime, timedelta
-from logging import info, debug, warning
+from asyncio import AbstractEventLoop
+from asyncio import sleep
+from datetime import datetime
+from datetime import timedelta
+from logging import info
+from logging import debug
+from logging import warning
 from typing import Optional
 
-from .wrapper.rabbitmq import RabbitMQ, getPublisher, Message
-from .wrapper.redis_client import RedisClient
-from .models.mongodb_models import Task
-from .wrapper.list_handler import ListHandler
+# direct imports
 from .queue_handler import QueueHandler
-from .common.settings import max_task_age_wait_queue, wait_time, wait_block_list_redis_key  # noqa: E501
+
+# wrapper
+from .wrapper.rabbitmq import RabbitMQ
+from .wrapper.rabbitmq import getPublisher
+from .wrapper.rabbitmq import Message
+from .wrapper.redis_client import RedisClient
+from .wrapper.list_handler import ListHandler
+
+# models
+from .models.mongodb_models import Task
+
+# settings
+from .common.settings import max_task_age_wait_queue
+from .common.settings import wait_time
+from .common.settings import wait_block_list_redis_key
 
 wait_time = int(wait_time)
 max_task_age_wait_queue = int(max_task_age_wait_queue)

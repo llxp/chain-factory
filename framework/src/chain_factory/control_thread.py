@@ -1,14 +1,21 @@
-from .wrapper.interruptable_thread import (
-  InterruptableThread, ThreadAbortException
-)
-from .models.redis_models import TaskControlMessage
-from .wrapper.redis_client import RedisClient
-from typing import Dict, Callable, Union
-from logging import info, exception, debug
+from typing import Dict
+from typing import Callable
+from typing import Union
+from logging import info
+from logging import exception
+from logging import debug
 from asyncio import run as run_asyncio
 from time import sleep
 from traceback import print_exc
 from sys import stdout
+
+# wrapper
+from .wrapper.interruptable_thread import InterruptableThread
+from .wrapper.interruptable_thread import ThreadAbortException
+from .wrapper.redis_client import RedisClient
+
+# models
+from .models.redis_models import TaskControlMessage
 
 
 class ControlThread(InterruptableThread):
@@ -46,8 +53,7 @@ class ControlThread(InterruptableThread):
                     if await self._control_task_thread_handle_channel(msg):
                         break
                 sleep(0.1)
-            await self.redis_client._pubsub_connection.unsubscribe(
-                self.control_channel)
+            await self.redis_client.unsubscribe(self.control_channel)
         except ThreadAbortException:
             return
 
@@ -65,6 +71,8 @@ class ControlThread(InterruptableThread):
         self,
         msg: Union[None, Dict]
     ):
+        if msg is None:
+            return False
         data: bytes = msg["data"]
         if type(data) == bytes:
             decoded_data = data.decode("utf-8")

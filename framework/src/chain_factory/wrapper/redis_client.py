@@ -1,13 +1,21 @@
-from asyncio import AbstractEventLoop, ensure_future, wait
+from asyncio import AbstractEventLoop
+from asyncio import ensure_future
+from asyncio import wait
 from logging import debug
-from redis.client import PubSub, StrictRedis
+from redis.client import PubSub
+from redis.client import StrictRedis
 from redis.exceptions import ConnectionError
-# from aioredis.exceptions import TimeoutError
 from threading import Lock
-from typing import Dict, Any, List, Optional
+from typing import Dict
+from typing import Any
+from typing import List
+from typing import Optional
+from redis_sentinel_url import connect as rsu_connect
+# from aioredis.exceptions import TimeoutError
+
+# decorators
 # from ..decorators.repeat import repeat
 # from ..decorators.repeat import repeat_async
-from redis_sentinel_url import connect as rsu_connect
 
 connection_pools: Dict[str, List[StrictRedis]] = {}
 
@@ -123,6 +131,9 @@ class RedisClient():
 
     async def subscribe(self, channel: str):
         return self._pubsub_connection.subscribe(channel)
+
+    async def unsubscribe(self, channel: str):
+        return self._pubsub_connection.unsubscribe(channel)
 
     # async def listen(self):
     #     future = self._pubsub_connection.listen()

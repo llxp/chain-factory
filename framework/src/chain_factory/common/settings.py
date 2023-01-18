@@ -44,7 +44,7 @@ task_status_redis_key = getenv("TASK_STATUS_REDIS_KEY", "task_status")
 # heartbeat configuration
 # redis key, which should be updated
 heartbeat_redis_key = getenv("HEARTBEAT_REDIS_KEY", "heartbeat")
-# wait time between each update (in seocnds)
+# wait time between each update (in seconds)
 heartbeat_sleep_time: int = int(getenv("HEARTBEAT_SLEEP_TIME", 1))
 # redis key, which should hold the block list for the normal block list
 incoming_block_list_redis_key = getenv(

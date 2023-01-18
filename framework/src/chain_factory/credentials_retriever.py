@@ -1,8 +1,10 @@
 from json import dumps
 from typing import Union
+from requests import post
+from requests import get
+from requests import Response
 
-from requests import post, get, Response
-
+# models
 from .models.credentials import ManagementCredentials
 
 

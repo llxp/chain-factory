@@ -1,16 +1,26 @@
 from asyncio import AbstractEventLoop
 from time import sleep
-from logging import info, warning, debug
-from typing import Literal, Union
+from logging import info
+from logging import warning
+from logging import debug
+from typing import Literal
+from typing import Union
 
-from .wrapper.rabbitmq import RabbitMQ, Message, getPublisher
-from .wrapper.redis_client import RedisClient
-from .models.mongodb_models import Task
-from .wrapper.list_handler import ListHandler
+# direct imports
 from .queue_handler import QueueHandler
-from .common.settings import wait_time
 
-wait_time = int(wait_time)
+# wrapper
+from .wrapper.rabbitmq import RabbitMQ
+from .wrapper.rabbitmq import Message
+from .wrapper.rabbitmq import getPublisher
+from .wrapper.redis_client import RedisClient
+from .wrapper.list_handler import ListHandler
+
+# models
+from .models.mongodb_models import Task
+
+# settings
+from .common.settings import wait_time
 
 
 class BlockedHandler(QueueHandler):

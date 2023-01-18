@@ -1,6 +1,8 @@
 from functools import wraps
 from logging import exception
-from typing import Any, Tuple, Type
+from typing import Any
+from typing import Tuple
+from typing import Type
 
 
 def repeat_async(

@@ -1,12 +1,18 @@
 from io import BytesIO
 from sys import __stdout__
 from re import sub
-from typing import Optional, Union
+from typing import Optional
+from typing import Union
 from odmantic import AIOEngine
-from asyncio import AbstractEventLoop, ensure_future
+from asyncio import AbstractEventLoop
+from asyncio import ensure_future
 
-from ..common.settings import task_log_to_stdout, task_log_to_external
+# models
 from ..models.mongodb_models import Log
+
+# settings
+from ..common.settings import task_log_to_stdout
+from ..common.settings import task_log_to_external
 
 
 class BytesIOWrapper(BytesIO):

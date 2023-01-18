@@ -1,12 +1,22 @@
 from threading import Thread
 from _thread import interrupt_main
 from datetime import datetime
-from asyncio import sleep, AbstractEventLoop, ensure_future
+from asyncio import sleep
+from asyncio import AbstractEventLoop
+from asyncio import ensure_future
 
+# direct imports
 from .client_pool import ClientPool
-from .common.settings import heartbeat_redis_key, heartbeat_sleep_time
+
+# models
 from .models.redis_models import Heartbeat
+
+# wrapper
 from .wrapper.redis_client import RedisClient
+
+# settings
+from .common.settings import heartbeat_redis_key
+from .common.settings import heartbeat_sleep_time
 
 
 class ClusterHeartbeat():

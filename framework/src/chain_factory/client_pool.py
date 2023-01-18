@@ -1,12 +1,16 @@
 from asyncio import AbstractEventLoop
 from logging import warning
 from typing import Dict
+from typing import Optional
 from pymongo.errors import CollectionInvalid
 
-from .models.mongodb_models import (
-    TaskWorkflowAssociation, Workflow,
-    Log, WorkflowStatus
-)
+# models
+from .models.mongodb_models import TaskWorkflowAssociation
+from .models.mongodb_models import Workflow
+from .models.mongodb_models import Log
+from .models.mongodb_models import WorkflowStatus
+
+# wrapper
 from .wrapper.mongodb_client import MongoDBClient
 from .wrapper.redis_client import RedisClient
 from .wrapper.rabbitmq import RabbitMQ
@@ -16,10 +20,10 @@ class ClientPool():
     def __init__(
         self,
     ):
-        self.mongodb_client: MongoDBClient = None
+        self.mongodb_client: Optional[MongoDBClient] = None
         self.redis_clients: Dict[str, RedisClient] = {}
         self.rabbitmq_clients: Dict[str, RabbitMQ] = {}
-        self.loop: AbstractEventLoop = None
+        self.loop: Optional[AbstractEventLoop] = None
 
     async def init(
         self,
@@ -32,9 +36,9 @@ class ClientPool():
         - initialises the redis client
         - initialises the mongodb client
         """
-        self.redis_clients["default"] = await self._init_redis(redis_url, key_prefix)  # noqa: E501
-        self.mongodb_client: MongoDBClient = await self._init_mongodb(mongodb_url)  # noqa: E501
         self.loop = loop
+        self.redis_clients["default"] = await self._init_redis(redis_url, key_prefix)  # noqa: E501
+        self.mongodb_client = await self._init_mongodb(mongodb_url)  # noqa: E501
 
     async def redis_client(
         self,
@@ -48,8 +52,7 @@ class ClientPool():
             create a new one with the given redis url
         """
         if redis_url not in self.redis_clients:
-            self.redis_clients[redis_url] = await self._init_redis(
-                redis_url, key_prefix)
+            self.redis_clients[redis_url] = await self._init_redis(redis_url, key_prefix)  # noqa: E501
         return self.redis_clients[redis_url]
 
     async def _init_mongodb(self, mongodb_url: str) -> MongoDBClient:
@@ -69,6 +72,8 @@ class ClientPool():
         """
         returns a new redis client object
         """
+        if self.loop is None:
+            raise Exception("loop not set")
         return RedisClient(
             redis_url=redis_url,
             key_prefix=key_prefix,

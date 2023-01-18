@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from pydantic import Field
 from typing import Dict
 from datetime import datetime
 

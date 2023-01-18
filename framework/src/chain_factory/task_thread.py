@@ -1,12 +1,16 @@
 from io import BytesIO
-from .wrapper.interruptable_thread import (
-  InterruptableThread, ThreadAbortException
-)
-from stdio_proxy import redirect_stdout, redirect_stderr
+from stdio_proxy import redirect_stdout
+from stdio_proxy import redirect_stderr
 from asyncio import run as run_asyncio
-from logging import Handler, exception, getLogger
+from logging import Handler
+from logging import exception
+from logging import getLogger
 from traceback import print_exc
 from sys import stdout
+
+# wrapper
+from .wrapper.interruptable_thread import InterruptableThread
+from .wrapper.interruptable_thread import ThreadAbortException
 
 
 class TaskThread(InterruptableThread):
