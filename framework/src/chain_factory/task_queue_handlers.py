@@ -4,6 +4,7 @@ from logging import shutdown as shutdown_log
 from time import sleep
 from typing import Optional
 from typing import Union
+
 # from typing import Dict
 
 # direct imports
@@ -17,6 +18,9 @@ from .cluster_heartbeat import ClusterHeartbeat
 from .blocked_handler import BlockedHandler
 from .wait_handler import WaitHandler
 from .task_handler import TaskHandler
+
+# models
+from .models.mongodb_models import ErrorCallbackType
 
 # wrapper
 # from .wrapper.mongodb_client import MongoDBClient
@@ -61,6 +65,9 @@ class TaskQueueHandlers():
 
     def add_task(self, name: str, callback, repeat_on_timeout: bool = False):  # noqa: E501
         self._task_handler.add_task(name, callback, repeat_on_timeout)
+
+    def add_error_handler(self, exc_type, callback: ErrorCallbackType):  # noqa: E501
+        self._task_handler.add_error_handler(exc_type, callback)
 
     def namespaced(self, var: str):
         if self.namespace:

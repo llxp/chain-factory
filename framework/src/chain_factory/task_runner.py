@@ -27,6 +27,7 @@ from .models.mongodb_models import CallbackType
 from .models.mongodb_models import TaskRunnerReturnType
 from .models.mongodb_models import TaskReturnType
 from .models.mongodb_models import NormalizedTaskReturnType
+from .models.mongodb_models import ErrorCallbackMappingType
 
 
 class TaskRunner():
@@ -38,18 +39,35 @@ class TaskRunner():
         callback: CallbackType,
         namespace: str
     ):
-        self.callback: CallbackType = callback
-        self.name: str = name
-        self.task_threads: Dict[str, TaskThread] = {}
-        self.task_timeout: int = -1
-        self.task_repeat_on_timeout = False
-        self.namespace = namespace
+        self._callback: CallbackType = callback
+        self._name: str = name
+        self._task_threads: Dict[str, TaskThread] = {}
+        self._task_timeout: int = -1
+        self._task_repeat_on_timeout = False
+        self._namespace = namespace
+        self._error_handlers: ErrorCallbackMappingType = {}
 
     def set_redis_client(self, redis_client: RedisClient):
-        self.redis_client = redis_client
+        self._redis_client = redis_client
+
+    def update_task_timeout(self, task_timeout: int):
+        self._task_timeout = task_timeout
+
+    def update_error_handlers(self, error_handlers: ErrorCallbackMappingType):
+        self._error_handlers = error_handlers
+
+    def update_task_repeat_on_timeout(self, task_repeat_on_timeout: bool):
+        self._task_repeat_on_timeout = task_repeat_on_timeout
+
+    @property
+    def task_repeat_on_timeout(self):
+        return self._task_repeat_on_timeout
+
+    def update_namespace(self, namespace: str):
+        self._namespace = namespace
 
     def running_workflows(self):
-        return self.task_threads
+        return self._task_threads
 
     async def run(
         self,
@@ -58,55 +76,47 @@ class TaskRunner():
         buffer: BytesIO
     ) -> TaskRunnerReturnType:
         try:
-            debug(
-                f"running task function {self.name} "
-                f"with arguments {dumps(arguments)}"
-            )
+            debug(f"running task function {self._name} with arguments {dumps(arguments)}")  # noqa: E501
             info(f"running task with workflow_id: {workflow_id}")
             if arguments is None:
                 arguments = dict()
             # self.convert_arguments could raise a TypeError
             arguments = self.convert_arguments(arguments)
             with TaskRunner.lock:
-                self.task_threads[workflow_id] = self._create_task_thread(arguments, buffer)  # noqa: E501
+                self._task_threads[workflow_id] = self._create_task_thread(arguments, buffer)  # noqa: E501
             # start the task
             with TaskRunner.lock:
-                self.task_threads[workflow_id].start()
+                self._task_threads[workflow_id].start()
             # start redis subscribe watcher
             try:
-                task_control_thread = TaskControlThread(
-                    workflow_id,
-                    self.task_threads[workflow_id],
-                    self.redis_client,
-                    self.namespace
-                )
+                task_control_thread = TaskControlThread(workflow_id, self._task_threads[workflow_id], self._redis_client, self._namespace)  # noqa: E501
                 task_control_thread.start()
                 self._control_task_thread(workflow_id)
             except ThreadAbortException:
                 pass
 
-            if self.task_threads[workflow_id].status == 2:
+            if self._task_threads[workflow_id].status == 2:
                 # wait for task thread to normally exit
-                self.task_threads[workflow_id].join()
+                self._task_threads[workflow_id].join()
                 info(f"task with workflow id {workflow_id} finished")
             else:
                 warning("task aborted or stopped")
             with TaskRunner.lock:
-                task_result = self.task_threads[workflow_id].result
-                del self.task_threads[workflow_id]
+                task_result = self._task_threads[workflow_id].result
+                del self._task_threads[workflow_id]
             # parse the result to correctly return a result with arguments
             return TaskRunner._parse_task_output(task_result, arguments)
         except TypeError as e:
             exception(e)
             print_exc(file=stdout)
-            del self.task_threads[workflow_id]
+            del self._task_threads[workflow_id]
             return None
 
     def _create_task_thread(self, arguments: ArgumentType, buffer: BytesIO):
-        return TaskThread(self.callback, arguments, buffer)
+        return TaskThread(self._name, self._callback, arguments, buffer, self._error_handlers)  # noqa: E501
 
     def _task_finished(self, workflow_id: str):
-        return self.task_threads[workflow_id].status in [2, 3, 4, 5]
+        return self._task_threads[workflow_id].status in [2, 3, 4, 5]
 
     def _control_task_thread(self, workflow_id: str):
         """
@@ -120,10 +130,10 @@ class TaskRunner():
             current_time = time()
             elapsed_time = current_time - start_time
             if (
-                self.task_timeout != -1 and
-                elapsed_time > self.task_timeout
+                self._task_timeout != -1 and
+                elapsed_time > self._task_timeout
             ):
-                self.task_threads[workflow_id].abort_timeout()
+                self._task_threads[workflow_id].abort_timeout()
                 break
             # check, if exited, stopped or aborted
             if self._task_finished(workflow_id):
@@ -164,8 +174,8 @@ class TaskRunner():
         return task_result, old_arguments
 
     def convert_arguments(self, arguments: ArgumentType) -> ArgumentType:
-        callback_arguments = list(self.callback.__code__.co_varnames)
-        callback_types = self.callback.__annotations__
+        callback_arguments = list(self._callback.__code__.co_varnames)
+        callback_types = self._callback.__annotations__
         for argument in arguments:
             if argument in callback_arguments and argument in callback_types:
                 if callback_types[argument] == int and isinstance(arguments[argument], str):  # noqa: E501
@@ -178,7 +188,7 @@ class TaskRunner():
         return arguments
 
     def abort(self, workflow_id: str):
-        self.task_threads[workflow_id].abort()
+        self._task_threads[workflow_id].abort()
 
     def stop(self, workflow_id: str):
-        self.task_threads[workflow_id].stop()
+        self._task_threads[workflow_id].stop()

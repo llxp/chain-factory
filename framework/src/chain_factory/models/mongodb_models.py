@@ -37,6 +37,8 @@ SerializableType = Union[
 ArgumentType = Dict[str, SerializableType]
 NormalizedTaskReturnType = Tuple[TaskReturnType, ArgumentType]
 TaskRunnerReturnType = Union[None, NormalizedTaskReturnType]
+ErrorCallbackType = Callable[[Exception, str, ArgumentType], Union[NormalizedTaskReturnType, TaskReturnType]]  # noqa: E501
+ErrorCallbackMappingType = Dict[Type[Exception], ErrorCallbackType]
 
 
 class RegisteredTask(EmbeddedModel):

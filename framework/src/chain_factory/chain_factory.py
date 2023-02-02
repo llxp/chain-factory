@@ -8,11 +8,15 @@ from asyncio import AbstractEventLoop
 from asyncio import new_event_loop
 from logging import debug
 from typing import Optional
+from typing import Type
 
 # direct imports
 # from .task_starter import TaskStarter
 from .task_queue_handlers import TaskQueueHandlers
 # from .credentials_retriever import CredentialsRetriever
+
+# data types
+from .models.mongodb_models import ErrorCallbackType
 
 # settings
 from .common.settings import worker_count as default_worker_count
@@ -111,11 +115,7 @@ class ChainFactory():
     #     """
     #     await self.task_queue_handlers.wait_for_task(namespace, task_name, arguments)  # noqa: E501
 
-    def task(
-        self,
-        name: str = "",
-        repeat_on_timeout: bool = default_task_repeat_on_timeout
-    ):
+    def task(self, name: str = "", repeat_on_timeout: bool = default_task_repeat_on_timeout):  # noqa: E501
         """
         Decorator to register a new task in the framework
 
@@ -135,8 +135,7 @@ class ChainFactory():
                 temp_name = func.__name__
             # register the function
             # using the function name
-            self.task_queue_handlers.add_task(
-                temp_name, func, repeat_on_timeout)
+            self.task_queue_handlers.add_task(temp_name, func, repeat_on_timeout)  # noqa: E501
             return func
         return wrapper
 
@@ -153,6 +152,12 @@ class ChainFactory():
         """
         outer_wrapper = self.task(name, repeat_on_timeout)
         outer_wrapper(func)
+
+    def add_error_handler(self, exc_type: Type[Exception], func: ErrorCallbackType):  # noqa: E501
+        """
+        Adds an error handler to the framework
+        """
+        self.task_queue_handlers.add_error_handler(exc_type, func)  # noqa: E501
 
     async def listen(self, loop: AbstractEventLoop):
         """

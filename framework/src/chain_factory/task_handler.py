@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Type
 from typing import Union
 from typing import List
 from datetime import datetime
@@ -37,6 +37,8 @@ from .models.mongodb_models import ArgumentType
 from .models.mongodb_models import TaskReturnType
 from .models.mongodb_models import TaskRunnerReturnType
 from .models.mongodb_models import CallbackType
+from .models.mongodb_models import ErrorCallbackType
+from .models.mongodb_models import ErrorCallbackMappingType
 
 # models
 from .models.mongodb_models import Task
@@ -58,6 +60,7 @@ class TaskHandler(QueueHandler):
         QueueHandler.__init__(self)
         self.ack_lock = Lock()
         self.registered_tasks: Dict[str, TaskRunner] = {}
+        self.error_handlers: ErrorCallbackMappingType = {}
         self.mongodb_client: Union[AIOEngine, None] = None
         self.task_timeout: int = -1
         self.namespace: str = namespace
@@ -85,9 +88,12 @@ class TaskHandler(QueueHandler):
         await self.block_list.init()
 
     def update_task_timeout(self):
-        for task in self.registered_tasks:
-            task_runner = self.registered_tasks[task]
-            task_runner.task_timeout = self.task_timeout
+        for _, runner in self.registered_tasks.items():
+            runner.update_task_timeout(self.task_timeout)
+
+    def update_error_handlers(self):
+        for _, runner in self.registered_tasks.items():
+            runner.update_error_handlers(self.error_handlers)
 
     async def _init_amqp_publishers(self, url: str):
         self.rabbitmq_wait: RabbitMQ = getPublisher(rabbitmq_url=url, queue_name=self.wait_queue_name)  # noqa: E501
@@ -343,7 +349,7 @@ class TaskHandler(QueueHandler):
         error("planning tasks is not implemented yet")
         return None
 
-    async def _handle_task(
+    async def _handle_incoming_task(
         self,
         task: Task,
         message: Message
@@ -440,7 +446,7 @@ class TaskHandler(QueueHandler):
                 if registered_task == task.name:
                     # reset reject_counter when task has been accepted
                     task.reject_counter = 0
-                    return await self._handle_task(task, message)
+                    return await self._handle_incoming_task(task, message)
             # task not found on the current node
             # rejecting task
             info(f"rejecting task: {task.name}")
@@ -454,10 +460,27 @@ class TaskHandler(QueueHandler):
         Register a new task/task function
         """
         task = TaskRunner(name, callback, self.namespace)
-        task.task_repeat_on_timeout = repeat_on_timeout
+        task.update_task_repeat_on_timeout(repeat_on_timeout)
         self.registered_tasks[name] = task
         self.add_schedule_task_shortcut(name, callback)
-        debug(f"registered task:{name}")
+        debug(f"registered task: {name}")
+
+    def add_error_handler(self, exc_type: Type[Exception], callback: ErrorCallbackType):  # noqa: E501
+        """
+        Register a new error handler
+
+        :param callback: the callback function
+        :type callback: Callable[[Task, Exception], None]
+        """
+        self.error_handlers[exc_type] = callback
+        debug("registered error handler for type: " + str(exc_type))
+
+    def clear_error_handlers(self):
+        """
+        Clear all registered error handlers
+        """
+        self.error_handlers = {}
+        debug("cleared error handlers")
 
     def add_schedule_task_shortcut(self, name: str, callback: CallbackType):
         """
@@ -487,7 +510,6 @@ class TaskHandler(QueueHandler):
         return schedule_task
 
     def task_set_redis_client(self, redis_client: RedisClient):
-        for task_name in self.registered_tasks:
-            task_runner: TaskRunner = self.registered_tasks[task_name]
-            task_runner.namespace = self.namespace
-            task_runner.set_redis_client(redis_client)
+        for _, runner in self.registered_tasks.items():
+            runner.update_namespace(self.namespace)
+            runner.set_redis_client(redis_client)
