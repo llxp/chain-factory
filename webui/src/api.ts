@@ -117,7 +117,7 @@ export async function activeTasks(namespace: string, searchTerm: string, page: n
 
 export async function startTask(namespace: string, task: string, taskArguments: any, tags: string[]) {
   return axios.post<HandleWorkflowResponse | HTTPException>(
-    `/api/v1/tasks/new?namespace=${namespace}&node_name=default&task=${task}`,
+    `/api/v1/tasks/new?namespace=${namespace}&node_name=default&task_name=${task}`,
     { 'arguments': taskArguments, 'tags': tags }
   ).then(response => response.data);
 }

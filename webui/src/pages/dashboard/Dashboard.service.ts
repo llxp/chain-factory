@@ -12,7 +12,7 @@ export function fetchNodeMetrics(namespace: string): ThunkAction<void, RootState
       const nodeMetricsResult = nodeMetricsResponse as NodeMetricsResponse[];
       const allNodes = nodeMetricsResult.map((node) => node.node_name);
       dispatch(setAllNodes(allNodes));
-      dispatch(setRunningNodes(nodeMetricsResult.filter((node) => node.active).map((node) => node.node_name)));
+      dispatch(setRunningNodes(nodeMetricsResult.filter((node) => node.active).map((node) => node.node_name + ":" + node.namespace)));
       dispatch(setStoppedNodes(nodeMetricsResult.filter((node) => !node.active).map((node) => node.node_name)));
     } catch (error) {
       console.log(error);
