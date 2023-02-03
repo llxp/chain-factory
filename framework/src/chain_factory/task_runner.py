@@ -39,7 +39,7 @@ class TaskRunner():
         callback: CallbackType,
         namespace: str
     ):
-        self._callback: CallbackType = callback
+        self.callback: CallbackType = callback
         self._name: str = name
         self._task_threads: Dict[str, TaskThread] = {}
         self._task_timeout: int = -1
@@ -113,7 +113,7 @@ class TaskRunner():
             return None
 
     def _create_task_thread(self, arguments: ArgumentType, buffer: BytesIO):
-        return TaskThread(self._name, self._callback, arguments, buffer, self._error_handlers)  # noqa: E501
+        return TaskThread(self._name, self.callback, arguments, buffer, self._error_handlers)  # noqa: E501
 
     def _task_finished(self, workflow_id: str):
         return self._task_threads[workflow_id].status in [2, 3, 4, 5]
@@ -174,8 +174,8 @@ class TaskRunner():
         return task_result, old_arguments
 
     def convert_arguments(self, arguments: ArgumentType) -> ArgumentType:
-        callback_arguments = list(self._callback.__code__.co_varnames)
-        callback_types = self._callback.__annotations__
+        callback_arguments = list(self.callback.__code__.co_varnames)
+        callback_types = self.callback.__annotations__
         for argument in arguments:
             if argument in callback_arguments and argument in callback_types:
                 if callback_types[argument] == int and isinstance(arguments[argument], str):  # noqa: E501
