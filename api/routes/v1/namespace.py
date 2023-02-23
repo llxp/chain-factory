@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from odmantic import AIOEngine
 from redis import Redis
 from amqpstorm.management import ManagementApi, ApiError
-from ...auth.depends import CheckScope, get_username
+from ...auth.depends import CheckScope, get_breakglass_domain, get_breakglass_username, get_username  # noqa: E501
 from .utils import get_odm_session, get_rabbitmq_management_api, get_redis_client  # noqa: E501
 from .models.namespace import Namespace
 from ...auth.utils.credentials import get_domain
@@ -48,6 +48,8 @@ async def create_namespace(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
+    breakglass_username: str = Depends(get_breakglass_username),
+    breakglass_domain: str = Depends(get_breakglass_domain),
 ):
     if namespace == '':
         raise HTTPException(status_code=400, detail="Namespace cannot be empty")  # noqa: E501
@@ -57,13 +59,15 @@ async def create_namespace(
         domain = await get_domain(username)
         domain_lower = domain.lower()
         now = datetime.utcnow()
+        breakglass_user = f"{breakglass_username}@{breakglass_domain}"
+        allowed_users = [username_lower, breakglass_user] if username_lower != breakglass_user else [username_lower]  # noqa: E501
         namespace_result = await database.save(Namespace(
             namespace=namespace,
             domain=domain_lower,
             enabled=True,
             created_at=now,
             updated_at=now,
-            allowed_users=[username_lower],
+            allowed_users=allowed_users,
             creator=username_lower,
         ))
         info(f"Created namespace {namespace_result.namespace}")

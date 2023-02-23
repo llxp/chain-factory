@@ -1,6 +1,7 @@
 from calendar import timegm
 from datetime import datetime, timedelta, timezone
 from json import JSONDecodeError, loads
+from typing import Optional, Type
 from uuid import uuid4
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -11,6 +12,7 @@ from jose.exceptions import JOSEError, JWKError, JWEError
 class CredentialsToken(BaseModel):
     username: str = ''
     password: str = ''
+    iss: str = ''
     exp: int = Field(default=timegm(
         (datetime.now(tz=timezone.utc) + timedelta(hours=24)).utctimetuple()
     ))
@@ -25,9 +27,9 @@ class CredentialsToken(BaseModel):
         cls: type['CredentialsToken'],
         token: str,
         key: str
-    ) -> 'CredentialsToken':
+    ) -> Optional['CredentialsToken']:
         if token:
-            decrypted_token: bytes = cls.decrypt_token(token, key)
+            decrypted_token = cls.decrypt_token(token, key)
             if decrypted_token:
                 token_str: str = cls.decode_bytes_token(decrypted_token)
                 return cls.from_json(token_str)
@@ -35,18 +37,17 @@ class CredentialsToken(BaseModel):
 
     @classmethod
     def from_string_and_check(
-        cls: type['CredentialsToken'],
+        cls: Type['CredentialsToken'],
         token: str,
         key: str
-    ) -> 'CredentialsToken':
-        token: cls = cls.from_string(token, key)
-        if not token:
-            raise HTTPException(
-                status_code=401, detail='Invalid refresh token')
-        return token if token.check_token() else None
+    ) -> Optional['CredentialsToken']:
+        token_obj = cls.from_string(token, key)
+        if not token_obj:
+            raise HTTPException(status_code=401, detail='Invalid refresh token')  # noqa: E501
+        return token_obj if token_obj.check_token() else None
 
     @classmethod
-    def decrypt_token(cls: type, token: str, key: str) -> bytes:
+    def decrypt_token(cls: type, token: str, key: str) -> Optional[bytes]:
         try:
             return decrypt(token, key)
         except (JOSEError, JWKError, JWEError):
@@ -57,7 +58,7 @@ class CredentialsToken(BaseModel):
         return bytes_token.decode('utf-8')
 
     @classmethod
-    def from_json(cls: type, json_str: str) -> 'CredentialsToken':
+    def from_json(cls: type, json_str: str) -> Optional['CredentialsToken']:
         try:
             token_dict = loads(json_str)
             return CredentialsToken(**token_dict)

@@ -4,9 +4,10 @@ import { useSnackbar } from "notistack";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navigate } from "react-router-dom";
-import { selectLoggedIn, signInAsync, useReduxDispatch } from './signin.slice';
+import { getUserProfileAsync, selectLoggedIn, setLoggedIn, signInAsync, useReduxDispatch } from './signin.slice';
 import clsx from 'clsx';
 import { useSelector } from "react-redux";
+import { UserProfile } from "../../models";
 
 export default function CoreComponent() {
   const loggedIn = useSelector(selectLoggedIn);
@@ -28,33 +29,70 @@ export function SignIn() {
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    dispatch(signInAsync(username, password, ['auth', 'user', 'workflow_controller']))
-      .then(
-        (success: boolean) => {
-          enqueueSnackbar(
-            success ? 'Signin successful!' : 'Error Signing in!',
-            {
-              variant: success ? 'success' : 'error',
-              autoHideDuration: 3000,
-            }
-          );
-          if (success) {
-            setTimeout(() => {
-              // forward to default page on success
-              navigate('/');
-            }, 1000);
+    // first sign in using only the auth scope
+    // then get the user profile to obtain all scopes the user has access to
+    // then sign in again using all available scopes
+
+    // sign in using only the auth/user scope to be able to get the user profile
+    dispatch(signInAsync(username, password, ['auth', 'user']))
+    .then((success: boolean) => {
+      if (success) {
+        // get user profile, to obtain all available scopes, the user can request
+        dispatch(getUserProfileAsync()).then((user: UserProfile | null) => {
+          if (user) {
+            // sign in again, using all available scopes
+            dispatch(signInAsync(username, password, user.scopes)).then((success: boolean) => {
+              // show success message on success
+              showSuccessMessage();
+              if (success) {
+                // set logged in state
+                dispatch(setLoggedIn(true));
+                // wait a second, then forward to default page
+                setTimeout(() => {
+                  // forward to default page on success
+                  navigate('/');
+                }, 1000);
+              }
+            }, () => {
+              // show error message on failure
+              showErrorMessage("Error Signing in!");
+            });
+          } else {
+            // show error message on failure to get user profile, because user profile is null
+            showErrorMessage("Error getting user profile!");
           }
-        },
-        () => {
-          enqueueSnackbar(
-            'Error Signing in!',
-            {
-              variant: 'error',
-              autoHideDuration: 3000,
-            }
-          );
-        }
-      );
+        }, () => {
+          // show error message on failure to get user profile
+          showErrorMessage("Error getting user profile!");
+        });
+      } else {
+        // show error message on failure to sign in using only the auth/user scope
+        showErrorMessage("Error Signing in!");
+      }
+    }, () => {
+      // show error message on failure to sign in using only the auth/user scope
+      showErrorMessage("Error Signing in!");
+    });
+  };
+
+  const showSuccessMessage = () => {
+    enqueueSnackbar(
+      'Signin successful!',
+      {
+        variant: 'success',
+        autoHideDuration: 3000,
+      }
+    );
+  };
+
+  const showErrorMessage = (message: string) => {
+    enqueueSnackbar(
+      `${message}!`,
+      {
+        variant: 'error',
+        autoHideDuration: 3000,
+      }
+    );
   };
 
   const handleUsernameChange = (event: React.ChangeEvent<HTMLInputElement>) => {

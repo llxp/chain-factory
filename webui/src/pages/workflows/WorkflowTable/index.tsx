@@ -68,8 +68,14 @@ export default function WorkflowTable(props: IProps) {
       console.log("workflows: ", workflows);
       console.log("workflow: ", workflow);
       console.log("selectedWorkflow: ", selectedWorkflow);
-      if (workflow && workflow.status.toUpperCase() === "RUNNING") {
-        handleAction(action)(workflow.workflowId, workflow.namespace);
+      if (action === "delete") {
+        if (workflow) {
+          handleAction(action)(workflow.workflowId, workflow.namespace);
+        }
+      } else {
+        if (workflow && workflow.status.toUpperCase() === "RUNNING") {
+          handleAction(action)(workflow.workflowId, workflow.namespace);
+        }
       }
     }
   };
@@ -115,7 +121,7 @@ export default function WorkflowTable(props: IProps) {
     count={workflows.totalCount}
     title="Workflows"
     selectable
-    selectedRowsComponent={<TableHeadButtonControl onStop={() => handleSelectedAction('stop')} onAbort={() => handleSelectedAction('abort')} onRestart={() => handleSelectedAction('restart')} />}
+    selectedRowsComponent={<TableHeadButtonControl onStop={() => handleSelectedAction('stop')} onAbort={() => handleSelectedAction('abort')} onRestart={() => handleSelectedAction('restart')} onDelete={() => handleSelectedAction('delete')} />}
     searchValue={searchTerm}
     showLoadingSpinner={workflowsFetching}
     selectedRows={selectedWorkflows}

@@ -1,5 +1,5 @@
 from asyncio import AbstractEventLoop
-from asyncio import get_event_loop
+# from asyncio import get_event_loop
 from asyncio import new_event_loop
 from asyncio import ensure_future
 from dataclasses import dataclass
@@ -22,6 +22,7 @@ from aio_pika import IncomingMessage
 from aio_pika import Message as AioPikaMessage
 from aio_pika import DeliveryMode
 from aio_pika import Channel
+from aio_pika import ExchangeType
 from aio_pika.connection import Connection
 from aio_pika.exceptions import AMQPConnectionError
 from aio_pika.exceptions import ChannelInvalidStateError
@@ -59,11 +60,14 @@ class RabbitMQ:
         self.loop = loop
         self.acked = []
         self.nacked = []
+        self._consumer: Optional[_Consumer] = None
+        self.sender_channel: Optional[_Consumer] = None
+        self.connection: Optional[Connection] = None
 
     async def init(self):
         if self.loop is None and self.rmq_type == "consumer":
             raise Exception("loop is None and loop is required for consumer")
-        self.connection: Connection = await RabbitMQ._connect(self.url, loop=self.loop)  # noqa: E501
+        self.connection = await RabbitMQ._connect(self.url, loop=self.loop)  # noqa: E501
         if self.rmq_type == "consumer":
             await self.init_consumer()
         await self.init_sender()
@@ -72,6 +76,8 @@ class RabbitMQ:
         """
         Initializes a new consumer
         """
+        if self.connection is None:
+            raise Exception("init_consumer: connection is None")
         self._consumer = _Consumer(self.connection, self.queue_name)
         await self._consumer.init()
 
@@ -79,7 +85,9 @@ class RabbitMQ:
         """
         Initializes the sender channel
         """
-        self.sender_channel: _Consumer = _Consumer(self.connection, self.queue_name, self.queue_options)  # noqa: E501
+        if self.connection is None:
+            raise Exception("init_sender: connection is None")
+        self.sender_channel = _Consumer(self.connection, self.queue_name, self.queue_options)  # noqa: E501
         await self.sender_channel.init()
 
     def stop_callback(self):
@@ -90,8 +98,10 @@ class RabbitMQ:
         close all consumers and close the connection
         """
         self.callback = None
-        await self._consumer.close()
-        await self.connection.close()
+        if self._consumer:
+            await self._consumer.close()
+        if self.connection:
+            await self.connection.close()
 
     @staticmethod
     async def _connect(
@@ -102,16 +112,20 @@ class RabbitMQ:
         Connects to an rabbitmq server
         """
         debug(f"opening new RabbitMQ to host {url}")
-        if not loop:
-            loop = get_event_loop()
-        connection = await connect_robust(url, timeout=5, loop=loop)
-        debug(f"opened new RabbitMQ to host {url}")
-        return connection
+        # if not loop:
+        #     loop = get_event_loop()
+        if loop:
+            connection = await connect_robust(url, timeout=5, loop=loop)
+            debug(f"opened new RabbitMQ to host {url}")
+            return connection
+        return await connect_robust(url, timeout=5)
 
     async def message_count(self) -> int:
         """
         Retrieves the current count of messages, waiting in the queue
         """
+        if self.sender_channel is None:
+            raise Exception("sender channel is None")
         return await self.sender_channel.message_count()
 
     async def callback_impl(self, message: IncomingMessage):
@@ -181,6 +195,8 @@ class RabbitMQ:
         Starts the rabbitmq consumer/listener
         """
         info(f"starting new consumer for queue {self.queue_name}")
+        if self._consumer is None:
+            raise Exception("consumer is None")
         await self._start_consuming(self._consumer)
 
     async def _start_consuming(self, consumer: "_Consumer"):
@@ -224,12 +240,16 @@ class RabbitMQ:
         """
         Deletes the queue
         """
+        if self.sender_channel is None:
+            raise Exception("sender_channel is None")
         await self.sender_channel.delete_queue()
 
     async def clear_queue(self):
         """
         Clears the queue
         """
+        if self.sender_channel is None:
+            raise Exception("sender_channel is None")
         await self.sender_channel.clear_queue()
 
 
@@ -245,10 +265,12 @@ class _Consumer:
         self.queue_options = queue_options
         self.channel: Optional[Channel] = None
         self.queue: Optional[Queue] = None
+        self.init_done = False
 
     async def init(self):
         self.channel = await self._open_channel(self.connection)
         self.queue = await self._declare_queue(self.queue_options)
+        self.init_done = True
 
     @staticmethod
     async def _open_channel(connection: Connection) -> Channel:
@@ -268,7 +290,11 @@ class _Consumer:
         debug(f"declaring queue {queue_name}")
         if self.channel is None:
             raise Exception("channel is None")
+        # declare an exchange for the queue
+        exchange = await self.channel.declare_exchange(name=queue_name, type=ExchangeType.DIRECT, durable=True)  # noqa: E501
+        # declare the queue
         queue = await self.channel.declare_queue(name=queue_name, durable=True, arguments=queue_options)  # noqa: E501
+        await queue.bind(exchange=exchange, routing_key=queue_name)
         debug(f"declared queue {queue_name}")
         return queue
 

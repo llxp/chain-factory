@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Coroutine
 from typing import Callable
 from typing import Dict
 from typing import List
@@ -11,6 +11,7 @@ from odmantic import AIOEngine
 from odmantic import EmbeddedModel
 from odmantic import Model
 from odmantic import Field
+from pydantic import BaseModel
 
 # wrapper
 from ..wrapper.interruptable_thread import ThreadAbortException
@@ -20,6 +21,19 @@ from ..common.generate_random_id import generate_random_id
 
 # settings
 from ..common.settings import reject_limit
+
+
+class Workflow(Model):
+    created_date: datetime = Field(default_factory=datetime.utcnow)
+    workflow_id: str
+    node_name: str
+    namespace: str
+    tags: List[str] = []
+
+
+class ErrorContext(BaseModel):
+    workflow: Optional[Workflow]
+    task: Optional["Task"]
 
 
 CallbackType = Callable[..., "TaskReturnType"]
@@ -35,9 +49,28 @@ SerializableType = Union[
     Dict[IndexType, "SerializableType"]
 ]
 ArgumentType = Dict[str, SerializableType]
+FreeTaskReturnType = Union[TaskReturnType, Tuple[TaskReturnType, ArgumentType]]
 NormalizedTaskReturnType = Tuple[TaskReturnType, ArgumentType]
 TaskRunnerReturnType = Union[None, NormalizedTaskReturnType]
-ErrorCallbackType = Callable[[Exception, str, ArgumentType], Union[NormalizedTaskReturnType, TaskReturnType]]  # noqa: E501
+TaskThreadReturnType = Union[None, FreeTaskReturnType]
+ErrorCallbackType = Union[
+    Callable[
+        [Exception, str, ArgumentType],
+        Union[NormalizedTaskReturnType, TaskReturnType]
+    ],
+    Callable[
+        [ErrorContext, Exception, str, ArgumentType],
+        Union[NormalizedTaskReturnType, TaskReturnType]
+    ],
+    Callable[
+        [Exception, str, ArgumentType],
+        Coroutine[Any, Any, Union[NormalizedTaskReturnType, TaskReturnType]]
+    ],
+    Callable[
+        [ErrorContext, Exception, str, ArgumentType],
+        Coroutine[Any, Any, Union[NormalizedTaskReturnType, TaskReturnType]]
+    ],
+]
 ErrorCallbackMappingType = Dict[Type[Exception], ErrorCallbackType]
 
 
@@ -166,14 +199,6 @@ class WorkflowLog(Model):
     log_lines: List[str] = []
     workflow_id: str
     task_id: str
-
-
-class Workflow(Model):
-    created_date: datetime = Field(default_factory=datetime.utcnow)
-    workflow_id: str
-    node_name: str
-    namespace: str
-    tags: List[str] = []
 
 
 class WorkflowStatus(Model):

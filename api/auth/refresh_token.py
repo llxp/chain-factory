@@ -1,6 +1,9 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from odmantic import AIOEngine
+
+from api.auth.models.user_information import UserInformation
 
 from .models.refresh_token import RefreshToken
 from .models.token import TokenResponse
@@ -28,7 +31,7 @@ async def access_token_from_refresh_token(
 async def get_token(
     bearer_token: HTTPAuthorizationCredentials,
     key: str
-) -> CredentialsToken:
+) -> Optional[CredentialsToken]:
     token_str: str = bearer_token.credentials
     return CredentialsToken.from_string_and_check(token_str, key)
 
@@ -44,7 +47,13 @@ async def create_token(
         username = token.username
         scopes = db_token.scopes
         if scopes:
-            return TokenResponse.create_token(hostname, username, scopes, key)
+            user_information = UserInformation(
+                username=token.username,
+                user_id=db_token.user_id,
+                display_name=db_token.display_name,
+                email=db_token.email,
+            )
+            return TokenResponse.create_token(hostname, user_information, username, scopes, key, db_token.jti)  # noqa: E501
         raise HTTPException(status_code=403, detail='Scopes missing in refresh token')  # noqa: E501
     raise HTTPException(status_code=401, detail='Token is revoked')
 

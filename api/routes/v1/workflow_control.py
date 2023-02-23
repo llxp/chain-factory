@@ -1,19 +1,11 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from odmantic import AIOEngine
-from framework.src.chain_factory.task_queue.common.settings import (
-    task_control_channel_redis_key
-)
-from framework.src.chain_factory.task_queue.models.redis_models import (
-    TaskControlMessage
-)
-from framework.src.chain_factory.task_queue.models.mongodb_models import (
-    Task,
-    TaskWorkflowAssociation
-)
+from framework.src.chain_factory.common.settings import task_control_channel_redis_key  # noqa: E501
+from framework.src.chain_factory.models.redis_models import TaskControlMessage  # noqa: E501s
+from framework.src.chain_factory.models.mongodb_models import Task, TaskWorkflowAssociation  # noqa: E501
 from pymongo.results import InsertOneResult
-from framework.src.chain_factory.task_queue.wrapper.\
-    redis_client import RedisClient
+from redis import StrictRedis
 from ...auth.depends import CheckScope
 from .utils import get_allowed_namespace, get_odm_session, get_redis_client, get_username, get_rabbitmq_url, get_rabbitmq_client  # noqa: E501
 from .models.namespace import Namespace
@@ -29,7 +21,7 @@ async def stop_workflow(
     namespace: str,
     workflow_id: str,
     database: AIOEngine = Depends(get_odm_session),
-    redis_client: RedisClient = Depends(get_redis_client),
+    redis_client: StrictRedis = Depends(get_redis_client),
     username: str = Depends(get_username),
 ):
     namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa: E501
@@ -66,7 +58,7 @@ async def abort_workflow(
     namespace: str,
     workflow_id: str,
     database: AIOEngine = Depends(get_odm_session),
-    redis_client: RedisClient = Depends(get_redis_client),
+    redis_client: StrictRedis = Depends(get_redis_client),
     username: str = Depends(get_username),
 ):
     namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa: E501
@@ -104,7 +96,7 @@ async def restart_workflow(
     namespace: str,
     workflow_id: str,
     database: AIOEngine = Depends(get_odm_session),
-    redis_client: RedisClient = Depends(get_redis_client),
+    redis_client: StrictRedis = Depends(get_redis_client),
     username: str = Depends(get_username),
     rabbitmq_url: str = Depends(get_rabbitmq_url),
     namespace_obj: Namespace = Depends(get_allowed_namespace)
@@ -130,7 +122,9 @@ async def restart_workflow(
             ):
                 await workflow_status_collection.insert_one(dict(
                     workflow_id=workflow_id,
-                    namespace=namespace
+                    namespace=namespace,
+                    status='Stopped',
+                    created_date=datetime.utcnow()
                 ))
             # figure out the first task in the workflow
             task_collection = namespace_db.get_collection("task_workflow_association")  # noqa: E501
@@ -149,16 +143,26 @@ async def restart_workflow(
                         vhost = namespace + '_' + domain_snake_case  # noqa: E501
                         rabbitmq_client = await get_rabbitmq_client(vhost, rabbitmq_url)  # noqa: E501
 
+                        tags = []
+                        name = ""
+                        arguments = {}
+                        node_names = []
+                        if first_task_obj.task is not None:
+                            tags = first_task_obj.task.tags
+                            name = first_task_obj.task.name
+                            arguments = first_task_obj.task.arguments
+                            node_names = first_task_obj.task.node_names
+
                         new_workflow = Workflow(
                             created_date=datetime.utcnow(),
-                            tags=first_task_obj.task.tags,
+                            tags=tags,
                         )
                         wf_saved: InsertOneResult = await namespace_db.get_collection(Workflow.__collection__).insert_one(dict(new_workflow))  # noqa: E501
                         new_task: Task = Task(
-                            name=first_task_obj.task.name,
-                            arguments=first_task_obj.task.arguments,
-                            node_names=first_task_obj.task.node_names,
-                            tags=first_task_obj.task.tags,
+                            name=name,
+                            arguments=arguments,
+                            node_names=node_names,
+                            tags=tags,
                             workflow_id=str(wf_saved.inserted_id),  # noqa: E501
                         )
                         # update workflow with workflow id

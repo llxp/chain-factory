@@ -13,11 +13,13 @@ from .models.credentials import (
     ManagementCredentialsResponse
 )
 from .models.namespace import Namespace
-from .settings import (
-    default_mongodb_host, default_mongodb_port, default_mongodb_extra_args,
-    default_rabbitmq_host, default_rabbitmq_port,
-    default_redis_host, default_redis_port
-)
+from .settings import default_mongodb_host
+from .settings import default_mongodb_port
+from .settings import default_mongodb_extra_args
+from .settings import default_rabbitmq_host
+from .settings import default_rabbitmq_port
+from .settings import default_redis_host
+from .settings import default_redis_port
 
 from .utils import (
     check_namespace_allowed, decrypt, get_allowed_namespace,

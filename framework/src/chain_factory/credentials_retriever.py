@@ -1,8 +1,11 @@
 from json import dumps
+from logging import debug
 from typing import Union
 from requests import post
 from requests import get
 from requests import Response
+from httpx import AsyncClient
+from httpx import Timeout
 
 # models
 from .models.credentials import ManagementCredentials
@@ -27,10 +30,10 @@ class CredentialsRetriever():
         self.password = password
         self.mongodb_host = "localhost"
         self.mongodb_port = 27017
-        self.headers = dict(
-            Accept="application/json",
-            ContentType="application/json"
-        )
+        self.headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
         self.access_token = None
         self.extra_arguments = dict(authSource="admin")
         self.key = key
@@ -42,7 +45,7 @@ class CredentialsRetriever():
         The init method is used to initialize the class
         as the `__init__` method does not work with async
         """
-        self.jwe_token = self.get_jwe_token(self.username, self.password)
+        self.jwe_token = await self.a_get_jwe_token(self.username, self.password)  # noqa: E501
         if (
             isinstance(self.jwe_token, dict) and
             "access_token" in self.jwe_token and "token" in self.jwe_token["access_token"]  # noqa: E501
@@ -83,6 +86,7 @@ class CredentialsRetriever():
 
     def get_jwe_token(self, username, password) -> Union[dict, None]:
         """send login request to internal rest-api on /api/login"""
+        debug(f"getting jwe token with username: {username}")
         response: Response = post(
             url=self.endpoint + "/auth/login",
             data=dumps({
@@ -92,10 +96,32 @@ class CredentialsRetriever():
             }),
             headers=self.headers
         )
+        debug(response)
         # get jwe token from response
         if response.status_code == 200:
             return response.json()
+        debug(response.text)
         return None
+
+    async def a_get_jwe_token(self, username, password) -> Union[dict, None]:
+        timeout = Timeout(10.0, read=60)
+        async with AsyncClient(timeout=timeout) as client:
+            debug(f"getting jwe token with username: {username}")
+            request_json = dumps({
+                "username": username,
+                "password": password,
+                "scopes": ["user"]
+            })
+            response = await client.post(
+                url=self.endpoint + "/auth/login",
+                data=request_json,  # type: ignore
+                headers=self.headers
+            )
+            debug(response)
+            if response.status_code == 200:
+                return response.json()
+            debug(response.text)
+            return None
 
     def get_credentials(self) -> Union[ManagementCredentials, None]:
         """

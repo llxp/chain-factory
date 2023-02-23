@@ -1,18 +1,17 @@
 from distutils.log import debug
 from logging import info
 from fastapi import HTTPException
-from redis import Redis
+from redis import StrictRedis
 from redis_sentinel_url import connect as rsu_connect
 from fastapi import Request, Depends
 from datetime import datetime
 from cryptography.fernet import Fernet
 from odmantic import AIOEngine
 
-from framework.src.chain_factory.task_queue.common.settings import (
-    heartbeat_redis_key, heartbeat_sleep_time
-)
-from framework.src.chain_factory.task_queue.models.redis_models import Heartbeat  # noqa: E501
-from framework.src.chain_factory.task_queue.wrapper.rabbitmq import RabbitMQ
+from framework.src.chain_factory.common.settings import heartbeat_redis_key
+from framework.src.chain_factory.common.settings import heartbeat_sleep_time
+from framework.src.chain_factory.models.redis_models import Heartbeat  # noqa: E501
+from framework.src.chain_factory.wrapper.rabbitmq import RabbitMQ
 from ...auth.depends import get_username
 from .models.namespace import Namespace
 
@@ -24,51 +23,48 @@ def default_namespace(namespace):
     return namespace == "default" or namespace == "all"
 
 
-def has_pagination(page, page_size):
-    return page is not None and page_size is not None
+def has_pagination(page: int, page_size: int):
+    return page != -1 and page_size != -1
 
 
-def get_page_size(page_size):
+def get_page_size(page_size: int):
     return page_size if page_size > 0 else 1
 
 
 def has_begin_end(begin: str, end: str):
-    return begin is not None and end is not None
+    return begin != "" and end != ""
 
 
-def skip_stage(page, page_size):
+def skip_stage(page: int, page_size: int):
     stage = {}
     if has_pagination(page, page_size):
         stage["$skip"] = page * get_page_size(page_size)
     return stage
 
 
-def limit_stage(page, page_size):
+def limit_stage(page: int, page_size: int):
     stage = {}
     if has_pagination(page, page_size):
         stage["$limit"] = get_page_size(page_size)
     return stage
 
 
-def begin_end_stage(begin, end, stage={}):
+def begin_end_stage(begin: str, end: str, stage: dict = {}):
     if has_begin_end(begin, end):
-        if isinstance(begin, str):
-            begin = int(begin)
-        if isinstance(end, str):
-            end = int(end)
-        begin = datetime.fromtimestamp(begin)
-        end = datetime.fromtimestamp(end)
+        begin_int = int(begin)
+        end_int = int(end)
+        begin_datetime = datetime.fromtimestamp(begin_int)
+        end_datetime = datetime.fromtimestamp(end_int)
         if "$match" not in stage:
             stage["$match"] = {
                 "$and": []
             }
-        else:
-            stage["$match"]["$and"].append({
-                'created_date': {
-                    '$gte': begin,
-                    '$lte': end
-                }
-            })
+        stage["$match"]["$and"].append({
+            'created_date': {
+                '$gte': begin_datetime,
+                '$lte': end_datetime
+            }
+        })
     return stage
 
 
@@ -141,7 +137,7 @@ async def node_active(
     node_name: str,
     namespace: str,
     domain: str,
-    redis_client: Redis
+    redis_client: StrictRedis
 ):
     domain_snake_case = domain.replace(".", "_")
     redis_key = (
@@ -165,7 +161,7 @@ async def node_active(
             diff = now - last_time_seen
             info(f"diff: {diff}")
             info(f"diff.seconds: {diff.total_seconds()}")
-            if diff.total_seconds() <= (heartbeat_sleep_time * 10):
+            if diff.total_seconds() <= (heartbeat_sleep_time * 30):
                 info("Node is active")
                 return True
     info("Node is not active")
@@ -255,11 +251,11 @@ async def get_allowed_namespace(
     return namespace_obj
 
 
-async def get_redis_client(request: Request) -> Redis:
+async def get_redis_client(request: Request) -> StrictRedis:
     try:
         redis_url = request.state.redis_url
         _, client = rsu_connect(redis_url)
-        return client
+        return client  # type: ignore
     except AttributeError:
         raise HTTPException(status_code=500, detail="Redis url not set")
 
@@ -278,7 +274,7 @@ async def get_rabbitmq_url(request: Request) -> str:
         raise HTTPException(status_code=500, detail="RabbitMQ URL not set")  # noqa: E501
 
 
-def encrypt(message: bytes, key: str) -> bytes:
+def encrypt(message: str, key: str) -> bytes:
     key_bytes = key.encode('utf-8')
     message_bytes = message.encode('utf-8')
     return Fernet(key_bytes).encrypt(message_bytes)

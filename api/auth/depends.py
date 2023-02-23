@@ -1,3 +1,4 @@
+from logging import debug
 from typing import Optional, Union
 from fastapi import Depends, Request, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials
@@ -7,6 +8,8 @@ from fastapi.security.http import HTTPBase  # noqa: E501
 from starlette.status import HTTP_403_FORBIDDEN
 from jwt import ExpiredSignatureError, InvalidAudienceError
 from odmantic import AIOEngine
+
+from .models.user_information import UserInformation
 
 from .utils.request import get_hostname, get_server_secret, get_odm_session
 from .models.token import Token, TokenResponse
@@ -79,7 +82,7 @@ class CheckScope:
     ) -> str:
         if bearer_token:
             token = bearer_token.credentials
-            return self.get_token(request, token, server_secret)
+            return self.get_token(request, token, server_secret, hostname)
         if refresh_token:
             token = await get_refresh_token(refresh_token, server_secret)
             if token:
@@ -88,25 +91,35 @@ class CheckScope:
                     username = token.username
                     scopes = db_token.scopes
                     if scopes:
-                        token_response = TokenResponse.create_token(hostname, username, scopes, server_secret)  # noqa: E501
-                        response.set_cookie("Authorization", f"Bearer {token_response.token}", max_age=60 * 15, httponly=True, samesite='none', secure=True)  # noqa: E501
-                        return self.get_token(request, token_response.token, server_secret)  # noqa: E501
+                        user_information = UserInformation(
+                            username=db_token.username,
+                            user_id=db_token.user_id,
+                            display_name=db_token.display_name,
+                            email=db_token.email,
+                        )
+                        token_response = TokenResponse.create_token(hostname, user_information, username, scopes, server_secret, db_token.jti)  # noqa: E501
+                        response.set_cookie("Authorization", f"Bearer {token_response.token}", max_age=60 * 60, httponly=True, samesite='none', secure=True)  # noqa: E501
+                        return self.get_token(request, token_response.token, server_secret, hostname)  # noqa: E501
                     raise HTTPException(status_code=403, detail='Scopes missing from refresh token')  # noqa: E501
         raise HTTPException(status_code=403, detail='Authentication required')
 
-    def get_token(self, request: Request, token: str, server_secret: str):
-        decoded_token = self.get_decoded_token(token, server_secret)
+    def get_token(self, request: Request, token: str, server_secret: str, hostname: str):  # noqa: E501
+        decoded_token = self.get_decoded_token(token, server_secret, hostname)
         if decoded_token:
-            request.state.scopes = decoded_token.aud
-            request.state.username = decoded_token.sub
+            debug(f'Username: {decoded_token.username}')
+            request.state.scopes = decoded_token.scopes
+            request.state.username = decoded_token.username
+            request.state.token = decoded_token
             return decoded_token.sub
         raise HTTPException(status_code=403, detail='Authentication required')
 
-    def get_decoded_token(self, token: str, server_secret: str) -> Union[Token, None]:  # noqa: E501
+    def get_decoded_token(self, token: str, server_secret: str, hostname: str) -> Union[Token, None]:  # noqa: E501
         if token and server_secret:
             try:
-                decoded_token = Token.from_string(token, server_secret, self.scope)  # noqa: E501
+                decoded_token = Token.from_string(token, server_secret, hostname)  # noqa: E501
                 if decoded_token:
+                    if self.scope not in decoded_token.scopes:
+                        raise InvalidAudienceError('User doesn\'t have the appropriate roles assigned')  # noqa: E501
                     return decoded_token
             except ExpiredSignatureError:
                 raise HTTPException(status_code=403, detail='Token expired')
@@ -120,13 +133,33 @@ class CheckScope:
 
 async def get_scopes(request: Request):
     try:
-        return request.state.scopes
+        scopes = request.state.scopes
+        debug(f'Scopes: {scopes}')
+        return scopes
     except AttributeError:
         return None
 
 
 async def get_username(request: Request):
     try:
-        return request.state.username
+        username = request.state.username
+        debug(f'Username: {username}')
+        return username
+    except AttributeError:
+        return None
+
+
+async def get_breakglass_username(request: Request):
+    try:
+        bg_username = request.state.breakglass_username
+        debug(f'Breakglass Username: {bg_username}')
+        return bg_username
+    except AttributeError:
+        return None
+
+
+async def get_breakglass_domain(request: Request):
+    try:
+        return request.state.breakglass_domain
     except AttributeError:
         return None

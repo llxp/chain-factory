@@ -43,7 +43,8 @@ class ClientPool():
     async def redis_client(
         self,
         redis_url: str = "default",
-        key_prefix: str = ""
+        key_prefix: str = "",
+        loop: Optional[AbstractEventLoop] = None,
     ) -> RedisClient:
         """
         return a redis client specific to the given redis url
@@ -51,6 +52,8 @@ class ClientPool():
         if no default redis client exists,
             create a new one with the given redis url
         """
+        if not self.loop:
+            self.loop = loop
         if redis_url not in self.redis_clients:
             self.redis_clients[redis_url] = await self._init_redis(redis_url, key_prefix)  # noqa: E501
         return self.redis_clients[redis_url]

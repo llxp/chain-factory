@@ -36,3 +36,11 @@ export interface NodeMetricsResponse {
   namespace: string;
   active: boolean;
 }
+
+export interface UserProfile {
+  username: string;
+  user_id: string;
+  display_name: string;
+  email: string;
+  scopes: string[];
+}

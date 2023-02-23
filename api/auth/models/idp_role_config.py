@@ -1,6 +1,7 @@
 from odmantic import AIOEngine, Model, Field, EmbeddedModel
+from odmantic.engine import AIOCursor
 from datetime import datetime
-from typing import List, Generator
+from typing import List, Generator, Optional, Type
 
 from .user_information import UserInformation
 
@@ -32,7 +33,7 @@ class IdpRoleConfig(Model):
 
     @classmethod
     async def by_user(
-        cls: type,
+        cls: Type['IdpRoleConfig'],
         database: AIOEngine,
         user_information: UserInformation,
         domain: str = 'default'
@@ -43,7 +44,7 @@ class IdpRoleConfig(Model):
 
     @classmethod
     async def by_user_groups(
-        cls: type,
+        cls: Type['IdpRoleConfig'],
         database: AIOEngine,
         user: str,
         groups: List[str],
@@ -52,7 +53,7 @@ class IdpRoleConfig(Model):
         role_configs = await cls.get(database, domain)
         roles: List[IdpRoleConfig] = []
         if user and groups and role_configs:
-            role_config: IdpRoleConfig = None
+            role_config: Optional[IdpRoleConfig] = None
             async for role_config in role_configs:
                 for auth_config in role_config.auth_config:
                     if await cls.check_auth_config(auth_config, groups, user):
@@ -76,10 +77,10 @@ class IdpRoleConfig(Model):
 
     @classmethod
     async def get(
-        cls: type,
+        cls: Type['IdpRoleConfig'],
         database: AIOEngine,
         domain: str
-    ) -> List['IdpRoleConfig']:
+    ) -> Optional[AIOCursor['IdpRoleConfig']]:
         if domain:
             return database.find(
                 cls,

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import Dict, Union
 
 from .user_information import UserInformation
 
@@ -8,4 +8,4 @@ class TranslateUsersResponse(BaseModel):
     """
     TranslateUsersResponse
     """
-    users: List[UserInformation]
+    users: Union[UserInformation, Dict[str, UserInformation]]

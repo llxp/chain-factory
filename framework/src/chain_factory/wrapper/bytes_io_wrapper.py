@@ -4,8 +4,8 @@ from re import sub
 from typing import Optional
 from typing import Union
 from odmantic import AIOEngine
-from asyncio import AbstractEventLoop
-from asyncio import ensure_future
+from asyncio import AbstractEventLoop, run_coroutine_threadsafe
+# from asyncio import ensure_future
 
 # models
 from ..models.mongodb_models import Log
@@ -45,7 +45,8 @@ class BytesIOWrapper(BytesIO):
         if task_log_to_external:
             # dataclass to json and parse to dict
             coroutine = self.mongodb_database.save(task_log)
-            ensure_future(coroutine, loop=self.loop)
+            # ensure_future(coroutine, loop=self.loop)
+            run_coroutine_threadsafe(coroutine, self.loop)
         return super().write(b)
 
     def remove_secrets(self, string: str) -> str:

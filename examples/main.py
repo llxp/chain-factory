@@ -1,48 +1,46 @@
-from logging import basicConfig, DEBUG
+from logging import Formatter, StreamHandler, basicConfig, getLogger
 from os import getenv
+from sys import stdout
 from time import sleep
-from pathlib import Path
-from sys import path
-from framework.src.chain_factory.task_queue.models.mongodb_models import Task
-from framework.src.chain_factory.task_queue.task_queue import TaskQueue
-path.append(Path(
-    __file__).parent.parent.absolute().as_posix() + '/src')
+from chain_factory.models.mongodb_models import Task
+from framework.src.chain_factory import ChainFactory
 
-# import hanging_threads
+# environment variables
+logging_level: str = getenv("LOG_LEVEL", "DEBUG")
+cf_username: str = getenv('CHAIN_FACTORY_USERNAME', 'admin')
+cf_password: str = getenv('CHAIN_FACTORY_PASSWORD', 'admin')
+cf_endpoint: str = getenv('CHAIN_FACTORY_ENDPOINT', 'http://localhost:8005')
+cf_namespace: str = getenv('CHAIN_FACTORY_NAMESPACE', 'test01')
+# the namespace key can be retrieved through the chain-factory web interface
+# select a namespace
+#   -> edit
+#   -> rotate key
+#   -> the new key will appear
+#   -> copy it (the key will disappear when closing the modal)
+cf_namespace_key: str = getenv('CHAIN_FACTORY_NAMESPACE_KEY', '...')
+node_name = getenv('HOSTNAME', 'devnode01')
 
-FORMAT = (
-    '%(asctime)s.%(msecs)03d %(levelname)8s: '
-    '[%(pathname)10s:%(lineno)s - '
-    '%(funcName)20s() ] %(message)s'
-)
-basicConfig(
-    filename='logfile.log',
-    level=DEBUG,
-    format=FORMAT,
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+# the default logging format
+logging_fmt = "%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"  # noqa: E501
+try:
+    root_logger = getLogger()
+    root_logger.setLevel(logging_level)
+    root_handler = StreamHandler(stdout)
+    root_logger.addHandler(root_handler)
+    root_handler.setFormatter(Formatter(logging_fmt))
+except IndexError:
+    basicConfig(level=logging_level, format=logging_fmt)
 
 # create the main TaskQueue object
-task_queue = TaskQueue()
-host = '127.0.0.1'
-# the current node name. Should be later changed to an environment variable
-task_queue.node_name = getenv('HOSTNAME', 'devnode01')
-# the amqp endpoint. Should later be changed to an environment variable
-task_queue.amqp_host = getenv('RABBITMQ_HOST', host)
-# the redis endpoint. Should later be changed to an environment variable
-task_queue.redis_host = getenv('REDIS_HOST', host)
-# the amqp username ==> guest is the default
-task_queue.amqp_username = getenv('RABBITMQ_USER', 'guest')
-# the amqp passwort ==> guest is the default
-task_queue.amqp_password = getenv('RABBITMQ_PASSWORD', 'guest')
-task_queue.mongodb_connection = getenv(
-    'MONGODB_CONNECTION_URI',
-    'mongodb://root:example@' + host + '/orchestrator_db?authSource=admin'
+task_queue = ChainFactory(
+    username=cf_username,
+    password=cf_password,
+    endpoint=cf_endpoint,
+    namespace=cf_namespace,
+    namespace_key=cf_namespace_key,
+    node_name=node_name
 )
 task_queue.worker_count = 10
-task_queue.namespace = "root"
-
-counter = 0
 
 
 @task_queue.task()
@@ -55,7 +53,10 @@ def test01(testvar01: int):
 def test02():
     print('Test02<s>SECRET</s>')
     raise TypeError
-    return 'test01', {'testvar01': '01'}
+    return test01.s(testvar01='01')  # a next task can be started using the .s() method, this is the preferred way  # noqa: E501
+
+
+counter = 0
 
 
 @task_queue.task('simulate')
@@ -73,14 +74,14 @@ def simulate(times: int, i: int, exclude=['i']):
     for x in range(0, times):
         print(x)
         sleep(1)
-    return None
+    return None  # can also be ommitted
 
 
 @task_queue.task('test_task')
 def test_task():
     print("test task")
     print('Test02<s>SECRET</s>')
-    return 'simulate', {'i': 0, 'times': 30}
+    return 'simulate', {'i': 0, 'times': 30}  # a task can also be returned by name  # noqa: E501
 
 
 @task_queue.task('send_feedback')
@@ -92,7 +93,7 @@ def send_feedback(feedback):
 @task_queue.task()
 def workflow_task():
     print('schedule next task: send_feedback')
-    return Task(name='send_feedback', arguments={'feedback': 'success'})
+    return Task(name='send_feedback', arguments={'feedback': 'success'})  # a task can also be returned by Task object  # noqa: E501
 
 
 @task_queue.task()
@@ -101,13 +102,15 @@ def failed_task(failed_counter: int):
     failed_counter = failed_counter + 1
     if failed_counter >= 3:
         return None
-    return False, {'failed_counter': failed_counter}
+    return False, {'failed_counter': failed_counter}  # when returning False, the task will be retried  # noqa: E501
 
+
+# an example of a chained task
 
 @task_queue.task()
 def chained_task_01():
     print('chained_task_01')
-    return Task('chained_task_02', {'arg1': 'test01'})
+    return 'chained_task_02', {'arg1': 'test01'}
 
 
 @task_queue.task()
@@ -128,7 +131,4 @@ def chained_task_03(arg2: str):
 
 
 if __name__ == '__main__':
-    task_queue.listen()  # start the node
-
-    # sleep(1000)
-    task_queue.run_main_loop()
+    task_queue.run()

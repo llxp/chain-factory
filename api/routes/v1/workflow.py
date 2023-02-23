@@ -3,7 +3,7 @@ from logging import info
 from re import compile, UNICODE
 from bson.regex import Regex
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Optional, List
+from typing import List
 
 from odmantic import AIOEngine
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -29,13 +29,13 @@ async def workflows(
     namespaces: List[str] = Depends(get_allowed_namespaces_even_disabled),
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
-    search: Optional[str] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    sort_order: Optional[str] = None,
-    begin: Optional[str] = None,
-    end: Optional[str] = None,
+    search: str = "",
+    page: int = -1,
+    page_size: int = -1,
+    sort_by: str = "",
+    sort_order: str = "",
+    begin: str = "",
+    end: str = "",
 ):
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace, True)  # noqa: E501
     namespace_dbs_items = namespace_dbs.items()
@@ -47,11 +47,11 @@ async def workflows(
 
     def search_stage():
         stages = []
-        stage = begin_end_stage(begin, end, {})  # stage
+        stage = begin_end_stage(begin or "", end or "", {})  # stage
+        keys = []
         if search:
             search_splitted = search.split(' ')
             patterns = []
-            keys = []
 
             def get_regex(pattern):
                 regex = compile(pattern)
@@ -275,8 +275,8 @@ async def workflow_tasks(
     namespace: str,
     database: AIOEngine = Depends(get_odm_session),
     username: str = Depends(get_username),
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = -1,
+    page_size: int = -1,
 ):
     pipeline = [
         project({'_id': 0}),
@@ -458,7 +458,7 @@ async def workflow_metrics(
     return aggregations
 
 
-@api.delete('/{workflow_id}/logs', dependencies=[cleanup_scope])
+@api.delete('/{workflow_id}', dependencies=[cleanup_scope])
 async def delete_workflow_logs(
     workflow_id: str,
     force: bool = Query(False),
@@ -477,7 +477,7 @@ async def delete_workflow_logs(
         # only delete logs if workflow is stopped
         if workflow_stopped or force:
             collections: List[AsyncIOMotorCollection] = [
-                db.get_collection("task_workflow_association") for db in namespace_dbs  # noqa: E501
+                namespace_dbs[ns].get_collection("task_workflow_association") for ns in namespace_dbs  # noqa: E501
             ]
             cursors = [
                 collection.find({'workflow_id': workflow_id}) for collection in collections  # noqa: E501
@@ -489,13 +489,13 @@ async def delete_workflow_logs(
                 task['task']['task_id'] for task in tasks_results[0]
             ]
             logs_collections = [
-                db.get_collection("logs") for db in namespace_dbs
+                namespace_dbs[ns].get_collection("logs") for ns in namespace_dbs  # noqa: E501
             ]
             task_status_collections = [
-                db.get_collection("task_status") for db in namespace_dbs
+                namespace_dbs[ns].get_collection("task_status") for ns in namespace_dbs  # noqa: E501
             ]
             workflow_collections = [
-                db.get_collection("workflow") for db in namespace_dbs
+                namespace_dbs[ns].get_collection("workflow") for ns in namespace_dbs  # noqa: E501
             ]
             workflow_existing = await workflow_collections[0].find_one({'workflow_id': workflow_id})  # noqa: E501
             if not workflow_existing:
@@ -510,7 +510,7 @@ async def delete_workflow_logs(
                 await task_status_collection.delete_many({'task_id': {'$in': task_ids}})  # noqa: E501
             for workflow_status_collection in workflow_status_collections:
                 await workflow_status_collection.delete_many({'workflow_id': workflow_id})  # noqa: E501
-            return {'message': 'logs deleted'}
+            return {'status': 'workflow deleted'}
         raise HTTPException(status_code=400, detail="Workflow is not stopped yet. Provide query parameter 'force=true' to override this behaviour")  # noqa: E501
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
 
@@ -519,13 +519,13 @@ async def delete_workflow_logs(
 async def workflow_logs(
     workflow_id: str,
     database: AIOEngine = Depends(get_odm_session),
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = -1,
+    page_size: int = -1,
     namespaces: List[str] = Depends(get_allowed_namespaces),
     username: str = Depends(get_username),
 ):
     namespace_dbs = await Namespace.get_namespace_dbs(database, username)
-    collections: List[AsyncIOMotorCollection] = [db.get_collection("task_workflow_association") for db in namespace_dbs.items()]  # noqa: E501
+    collections: List[AsyncIOMotorCollection] = [namespace_dbs[ns].get_collection("task_workflow_association") for ns in namespace_dbs]  # noqa: E501
     pipeline = [
         lookup_logs('task.task_id', 'logs'),
         project({

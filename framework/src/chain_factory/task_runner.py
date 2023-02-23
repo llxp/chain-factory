@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from json import dumps
 from logging import error
 from logging import info
@@ -21,11 +21,10 @@ from .wrapper.interruptable_thread import ThreadAbortException
 from .wrapper.redis_client import RedisClient
 
 # models
-from .models.mongodb_models import Task
+from .models.mongodb_models import FreeTaskReturnType, Task, Workflow
 from .models.mongodb_models import ArgumentType
 from .models.mongodb_models import CallbackType
 from .models.mongodb_models import TaskRunnerReturnType
-from .models.mongodb_models import TaskReturnType
 from .models.mongodb_models import NormalizedTaskReturnType
 from .models.mongodb_models import ErrorCallbackMappingType
 
@@ -54,6 +53,7 @@ class TaskRunner():
         self._task_timeout = task_timeout
 
     def update_error_handlers(self, error_handlers: ErrorCallbackMappingType):
+        debug(f"updating error handlers to {error_handlers}")
         self._error_handlers = error_handlers
 
     def update_task_repeat_on_timeout(self, task_repeat_on_timeout: bool):
@@ -71,10 +71,12 @@ class TaskRunner():
 
     async def run(
         self,
-        arguments: ArgumentType,
-        workflow_id: str,
+        workflow: Optional[Workflow],
+        task: Task,
         buffer: BytesIO
     ) -> TaskRunnerReturnType:
+        workflow_id = task.workflow_id
+        arguments = task.arguments
         try:
             debug(f"running task function {self._name} with arguments {dumps(arguments)}")  # noqa: E501
             info(f"running task with workflow_id: {workflow_id}")
@@ -83,7 +85,7 @@ class TaskRunner():
             # self.convert_arguments could raise a TypeError
             arguments = self.convert_arguments(arguments)
             with TaskRunner.lock:
-                self._task_threads[workflow_id] = self._create_task_thread(arguments, buffer)  # noqa: E501
+                self._task_threads[workflow_id] = self._create_task_thread(arguments, buffer, workflow, task)  # noqa: E501
             # start the task
             with TaskRunner.lock:
                 self._task_threads[workflow_id].start()
@@ -93,9 +95,10 @@ class TaskRunner():
                 task_control_thread.start()
                 self._control_task_thread(workflow_id)
             except ThreadAbortException:
+                debug("task control thread aborted")
                 pass
 
-            if self._task_threads[workflow_id].status == 2:
+            if self._task_threads[workflow_id]._status == 2:
                 # wait for task thread to normally exit
                 self._task_threads[workflow_id].join()
                 info(f"task with workflow id {workflow_id} finished")
@@ -112,11 +115,11 @@ class TaskRunner():
             del self._task_threads[workflow_id]
             return None
 
-    def _create_task_thread(self, arguments: ArgumentType, buffer: BytesIO):
-        return TaskThread(self._name, self.callback, arguments, buffer, self._error_handlers)  # noqa: E501
+    def _create_task_thread(self, arguments: ArgumentType, buffer: BytesIO, workflow: Optional[Workflow], task: Task):  # noqa: E501
+        return TaskThread(self._name, self.callback, arguments, buffer, self._error_handlers, workflow, task)  # noqa: E501
 
     def _task_finished(self, workflow_id: str):
-        return self._task_threads[workflow_id].status in [2, 3, 4, 5]
+        return self._task_threads[workflow_id]._status in [2, 3, 4, 5]
 
     def _control_task_thread(self, workflow_id: str):
         """
@@ -142,7 +145,7 @@ class TaskRunner():
 
     @staticmethod
     def _parse_task_output(
-        task_result: TaskReturnType,
+        task_result: FreeTaskReturnType,
         old_arguments: ArgumentType
     ) -> NormalizedTaskReturnType:
         """
@@ -188,7 +191,9 @@ class TaskRunner():
         return arguments
 
     def abort(self, workflow_id: str):
+        debug(f"aborting task with workflow id {workflow_id}")
         self._task_threads[workflow_id].abort()
 
     def stop(self, workflow_id: str):
+        debug(f"stopping task with workflow id {workflow_id}")
         self._task_threads[workflow_id].stop()

@@ -24,7 +24,7 @@ FROM nginx:stable-alpine as release
 COPY --from=build /usr/src/app/build /usr/share/nginx/html
 # copy .env.example as .env to the release build
 COPY --from=build /usr/src/app/.env.example /usr/share/nginx/html/.env
-COPY --from=build /usr/src/app/nginx/default.conf /etc/nginx/conf.d/default.conf
+# COPY --from=build /usr/src/app/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /usr/src/app/nginx/nginx.conf /etc/nginx/nginx.conf
 
 RUN apk add --update nodejs
@@ -41,8 +41,22 @@ RUN chown -R nginx:nginx /var/cache/nginx && \
 RUN touch /var/run/nginx.pid && \
     chown -R nginx:nginx /var/run/nginx.pid
 
+RUN echo -e '\
+#!/bin/sh \n\
+# test if ./env/runtime-env.js already exists \n\
+if [ -f ./env/runtime-env.js ]; then \n\
+  echo "runtime-env.js already exists" \n\
+else \n\
+  echo "./env/runtime-env.js does not exist, creating it" \n\
+  runtime-env-cra \n\
+fi \n\
+nginx -g "daemon off;" \n\
+' > /init.sh
+
+RUN chmod +x /init.sh
+
 USER nginx
 
 EXPOSE 8000
 
-CMD ["/bin/sh", "-c", "runtime-env-cra && nginx -g \"daemon off;\""]
+CMD ["/bin/sh", "-c", "/init.sh"]

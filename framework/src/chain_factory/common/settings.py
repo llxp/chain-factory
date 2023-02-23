@@ -37,8 +37,7 @@ task_log_to_stdout = getenv("TASK_LOG_TO_STDOUT", True)
 # can be used to suppress all external logging
 task_log_to_external = getenv("TASK_LOG_TO_EXTERNAL", True)
 # redis key to mark a workflow as finished, if an entry is found in this list
-workflow_status_redis_key = getenv(
-    "WORKFLOW_STATUS_REDIS_KEY", "workflow_status")
+workflow_status_redis_key = getenv("WORKFLOW_STATUS_REDIS_KEY", "workflow_status")  # noqa: E501
 # redis key to mark a task as finished, if an entry is found in this list
 task_status_redis_key = getenv("TASK_STATUS_REDIS_KEY", "task_status")
 # heartbeat configuration
@@ -47,21 +46,16 @@ heartbeat_redis_key = getenv("HEARTBEAT_REDIS_KEY", "heartbeat")
 # wait time between each update (in seconds)
 heartbeat_sleep_time: int = int(getenv("HEARTBEAT_SLEEP_TIME", 1))
 # redis key, which should hold the block list for the normal block list
-incoming_block_list_redis_key = getenv(
-    "INCOMING_BLOCK_LIST_REDIS_KEY", "incoming_block_list")
+incoming_block_list_redis_key = getenv("INCOMING_BLOCK_LIST_REDIS_KEY", "incoming_block_list")  # noqa: E501
 # redis key, which should hold the block list for the wait block list
-wait_block_list_redis_key = getenv(
-    "WAIT_BLOCK_LIST_REDIS_KEY", "wait_block_list")
+# wait_block_list_redis_key = getenv("WAIT_BLOCK_LIST_REDIS_KEY", "wait_block_list")  # noqa: E501
 # task control channel redis key
-task_control_channel_redis_key = getenv(
-    "TASK_CONTROL_CHANNEL_REDIS_KEY", "task_control_channel")
+task_control_channel_redis_key = getenv("TASK_CONTROL_CHANNEL_REDIS_KEY", "task_control_channel")  # noqa: E501
 # node control channel redis key
-node_control_channel_redis_key = getenv(
-    "NODE_CONTROL_CHANNEL_REDIS_KEY", "node_control_channel")
+node_control_channel_redis_key = getenv("NODE_CONTROL_CHANNEL_REDIS_KEY", "node_control_channel")  # noqa: E501
 task_queue = getenv("TASK_QUEUE", "it_queue")
 wait_queue = getenv("WAIT_QUEUE", "iw_queue")
-incoming_blocked_queue = getenv(
-    "INCOMING_BLOCKED_QUEUE", "ib_queue")
+incoming_blocked_queue = getenv("INCOMING_BLOCKED_QUEUE", "ib_queue")  # noqa: E501
 wait_blocked_queue = getenv("WAIT_BLOCKED_QUEUE", "wb_queue")
 namespace = getenv("NAMESPACE", "test01")
 namespace_key = getenv("NAMESPACE_KEY", "")

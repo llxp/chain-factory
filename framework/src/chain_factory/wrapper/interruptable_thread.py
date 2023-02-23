@@ -10,7 +10,9 @@ from ctypes import pythonapi
 from ctypes import c_ulong
 from ctypes import py_object
 from ctypes import c_int
+from logging import debug
 from threading import Thread
+from traceback import print_stack
 
 _PyThreadState_SetAsyncExc = pythonapi.PyThreadState_SetAsyncExc
 # noinspection SpellCheckingInspection
@@ -52,6 +54,7 @@ def interrupt(ident=None):
 
 # noinspection PyShadowingBuiltins
 def exit(ident=None):
+    print("Exiting thread")
     if ident is None:
         thread_exit()
     else:
@@ -67,13 +70,19 @@ class InterruptableThread(Thread):
         Thread.__init__(self)
 
     def set_async_exc(self, exc, *args):
+        debug(f"Setting thread {self.ident} to {exc} with args: {args}")
         return set_async_exc(self.ident, exc, *args)
 
     def interrupt(self):
         self.set_async_exc(KeyboardInterrupt)
 
     def exit(self):
+        print("Exiting thread")
+        debug(f"Exiting thread {self.ident}")
         self.set_async_exc(SystemExit)
 
     def abort(self, *args):
+        print("Aborting thread")
+        print_stack()
+        debug(f"Aborting thread {self.ident} with args: {args}")
         self.set_async_exc(ThreadAbortException, *args)

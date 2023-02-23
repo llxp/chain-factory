@@ -1,7 +1,6 @@
 from typing import Dict
 from typing import Callable
 from typing import Union
-from logging import info
 from logging import exception
 from logging import debug
 from asyncio import run as run_asyncio
@@ -34,27 +33,32 @@ class ControlThread(InterruptableThread):
         self.control_channel = control_channel
         self.run_thread = True
         self.thread_name = thread_name
-        debug(self.control_channel)
+        # debug(self.control_channel)
 
     def stop(self):
         self.run_thread = False
 
     def run(self):
-        run_asyncio(self.run_async())
+        try:
+            run_asyncio(self.run_async())
+        except ThreadAbortException:
+            debug("ControlThread::run() ThreadAbortException")
+            return
 
     async def run_async(self):
         try:
-            debug(self.control_channel)
+            # debug(self.control_channel)
             await self.redis_client.subscribe(self.control_channel)
             while self.run_thread:
                 msg = await self.redis_client.get_message()
                 if msg is not None:
-                    info(msg)
+                    # info(msg)
                     if await self._control_task_thread_handle_channel(msg):
                         break
                 sleep(0.1)
             await self.redis_client.unsubscribe(self.control_channel)
         except ThreadAbortException:
+            debug("ControlThread::run_async() ThreadAbortException")
             return
 
     async def _control_task_thread_handle_channel(self, msg: Union[None, Dict]):  # noqa: E501

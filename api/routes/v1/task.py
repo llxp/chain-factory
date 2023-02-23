@@ -1,14 +1,13 @@
 from redis import Redis
 from bson.regex import Regex
 from fastapi import APIRouter, Depends
-from typing import Optional, List, Dict
+from typing import List, Dict
 from logging import getLogger
 
 from odmantic import AIOEngine
 from motor.motor_asyncio import AsyncIOMotorCollection
 
-from framework.src.chain_factory.task_queue.models.\
-    mongodb_models import NodeTasks
+from framework.src.chain_factory.models.mongodb_models import NodeTasks  # noqa: E501
 from ...auth.depends import CheckScope, get_username
 from .utils import (
     add_fields, facet, get_allowed_namespaces,
@@ -29,21 +28,13 @@ async def active_tasks(
     database: AIOEngine = Depends(get_odm_session),
     redis_client: Redis = Depends(get_redis_client),
     username: str = Depends(get_username),
-    search: Optional[str] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    search: str = "",
+    page: int = -1,
+    page_size: int = -1,
 ):
     active_nodes = await nodes(namespace, username, database, redis_client)
     LOGGER.debug(active_nodes)
-    tasks_result = await tasks(
-        namespace,
-        username,
-        search,
-        database,
-        page,
-        page_size,
-        active_nodes,
-    )
+    tasks_result = await tasks(namespace, username, search, database, page, page_size, active_nodes)  # noqa: E501
     return tasks_result
 
 
@@ -58,7 +49,7 @@ async def nodes(
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
     node_tasks_collections: Dict[str, AsyncIOMotorCollection] = {ns: namespace_db.get_collection(NodeTasks.__collection__) for ns, namespace_db in namespace_dbs.items()}  # noqa: E501
 
-    node_name_lists: list = {
+    node_name_lists: dict = {
         ns: node_tasks_collection.find()
         for ns, node_tasks_collection in node_tasks_collections.items()
     }
@@ -86,8 +77,8 @@ async def tasks(
     username: str,
     search: str,
     database: AIOEngine,
-    page: int = None,
-    page_size: int = None,
+    page: int = -1,
+    page_size: int = -1,
     nodes: List[NodeTasks] = [],
 ):
     unwind_stage = unwind("$tasks")
@@ -100,7 +91,7 @@ async def tasks(
         # if not default_namespace(namespace):
         #     stage["$match"]["namespace"] = namespace
         if nodes is not None:
-            stage["$match"]["node_name"] = {
+            stage["$match"]["node_name"] = {  # type: ignore
                 "$in": [
                     node.node_name for node in (
                         nodes if nodes is not None else []
@@ -169,8 +160,8 @@ async def task_logs(
     namespace: str,
     namespaces: List[str] = Depends(get_allowed_namespaces),
     username: str = Depends(get_username),
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
+    page: int = -1,
+    page_size: int = -1,
     database: AIOEngine = Depends(get_odm_session),
 ):
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501

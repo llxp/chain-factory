@@ -2,7 +2,7 @@ from asyncio import sleep
 from datetime import datetime
 from logging import getLogger
 from fastapi import APIRouter, Depends, Body, HTTPException
-from typing import Optional, Dict, List
+from typing import Dict, List
 from odmantic import AIOEngine
 from pymongo.results import InsertOneResult
 
@@ -15,7 +15,7 @@ from .utils import (
     check_namespace_allowed, get_rabbitmq_client, get_rabbitmq_url, get_odm_session  # noqa: E501
 )
 from .models.task import NewTaskRequest
-from framework.src.chain_factory.task_queue.models.mongodb_models import NodeTasks, Task  # noqa: E501
+from framework.src.chain_factory.models.mongodb_models import NodeTasks, Task  # noqa: E501
 
 LOGGER = getLogger(__name__)
 
@@ -31,7 +31,7 @@ async def new_task(
     namespace: str,
     task_name: str,
     # node_name: Optional[str] = None,
-    json_body: Optional[NewTaskRequest] = Body(...),
+    json_body: NewTaskRequest = Body(...),
     username: str = Depends(get_username),
     rabbitmq_url: str = Depends(get_rabbitmq_url),
     database: AIOEngine = Depends(get_odm_session),

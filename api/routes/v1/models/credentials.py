@@ -202,7 +202,7 @@ class RedisCredentials(EmbeddedModel):
 
 
 class ManagementCredentialsCollection(EmbeddedModel):
-    mongodb: MongoDBCredentials = Field()
+    mongodb: MongoDBCredentials
     rabbitmq: RabbitMQCredentials
     redis: RedisCredentials
 

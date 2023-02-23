@@ -1,18 +1,31 @@
-from logging import info
-from redis import Redis
-from fastapi import APIRouter, Depends, HTTPException
-from odmantic import AIOEngine
 from typing import List
+from logging import info
+
+# fastapi
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+
+# redis, odmantic, motor
+from redis import Redis
+from odmantic import AIOEngine
 from motor.motor_asyncio import AsyncIOMotorCollection
 
-from framework.src.chain_factory.task_queue.models.redis_models import (
-    TaskControlMessage,
-)
+# models from chain_factory framework
+from framework.src.chain_factory.models.redis_models import TaskControlMessage  # noqa: E501
+
+# data types
 from .models.namespace import Namespace
-from .utils import (
-    get_odm_session, get_redis_client, node_active,
-    get_allowed_namespaces, get_username, default_namespace
-)
+
+# utils
+from .utils import get_odm_session
+from .utils import get_redis_client
+from .utils import node_active
+from .utils import get_allowed_namespaces
+from .utils import get_username
+from .utils import default_namespace
+
+# auth
 from ...auth.depends import CheckScope
 
 
@@ -43,7 +56,12 @@ async def stop_node(
     for node_tasks in registered_node_tasks_result:
         node_tasks_namespace = node_tasks['namespace']
         namespace_objs = [ns for ns in namespaces if ns.namespace == node_tasks_namespace]  # noqa: E501
-        active = node_active(node_tasks['node_name'], node_tasks_namespace, namespace_objs[0])  # noqa: E501
+        active = node_active(
+            node_name=node_tasks['node_name'],
+            namespace=node_tasks_namespace,
+            domain=namespace_objs[0].domain,
+            redis_client=redis_client
+        )
         if namespace_objs and active:
             nodes.append(node_tasks['node_name'])  # noqa: E501
     redis_keys = [
@@ -51,7 +69,7 @@ async def stop_node(
         for namespace in namespaces
     ]
     for redis_key in redis_keys:
-        await redis_client.publish(
+        redis_client.publish(
             redis_key,
             TaskControlMessage(
                 workflow_id=node_name,
@@ -102,6 +120,12 @@ async def delete_node(
     namespaces: List[Namespace] = Depends(get_allowed_namespaces),
     username: str = Depends(get_username),
 ):
+    """
+    Delete a node from the database.
+    If there are multiple nodes with the same name,
+    the first found node will be deleted.
+    If there are no nodes with the name, this will fail.
+    """
     namespace_db = await Namespace.get_namespace_db(database, namespace, username, False)  # noqa: E501
     if namespace_db is not None:
         node_tasks_collection = await namespace_db.get_collection("node_tasks")
@@ -112,8 +136,6 @@ async def delete_node(
         if deletion_result.deleted_count == 1:
             return "Node deleted"
         if deletion_result.deleted_count > 1:
-            raise HTTPException(
-                status_code=500,
-                detail="Multiple nodes found with the same name")
+            raise HTTPException(status_code=500, detail="Multiple nodes found with the same name")  # noqa: E501
         raise HTTPException(status_code=404, detail="Node not found")
     raise HTTPException(status_code=401, detail=f"Namespace {namespace} not found or not allowed")  # noqa: E501

@@ -1,6 +1,6 @@
 from logging import info
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional, Type
 from odmantic import AIOEngine, Model
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -16,41 +16,41 @@ class Namespace(Model):
 
     @classmethod
     async def get(
-        cls,
+        cls: Type['Namespace'],
         database: AIOEngine,
         namespace: str,
         username: str,
         enabled: bool = True,
-    ) -> 'Namespace':
+    ) -> Optional['Namespace']:
         username = username.lower()
         return await database.find_one(
             cls,
             (
                 (cls.namespace == namespace) &
-                (cls.allowed_users.in_([username])) &
+                (cls.allowed_users.in_([username])) &  # type: ignore
                 (cls.enabled == enabled)  # noqa: E712
             )
         )
 
     @classmethod
     async def get_disabled_one(
-        cls,
+        cls: Type['Namespace'],
         database: AIOEngine,
         namespace: str,
         username: str,
-    ) -> 'Namespace':
+    ) -> Optional['Namespace']:
         username = username.lower()
         return await database.find_one(
             cls,
             (
                 (cls.namespace == namespace) &
-                (cls.allowed_users.in_([username]))
+                (cls.allowed_users.in_([username]))  # type: ignore
             )
         )
 
     @classmethod
     async def get_multiple(
-        cls: type,
+        cls: Type['Namespace'],
         database: AIOEngine,
         username: str,
         enabled: bool = True,
@@ -60,13 +60,13 @@ class Namespace(Model):
             cls,
             (
                 (cls.enabled == enabled) &  # noqa: E712
-                (cls.allowed_users.in_([username]))
+                (cls.allowed_users.in_([username]))  # type: ignore
             )
         )
 
     @classmethod
     async def get_multiple_disabled(
-        cls: type,
+        cls: Type['Namespace'],
         database: AIOEngine,
         username: str,
     ) -> List['Namespace']:
@@ -74,13 +74,13 @@ class Namespace(Model):
         return await database.find(
             cls,
             (
-                (cls.allowed_users.in_([username]))
+                (cls.allowed_users.in_([username]))  # type: ignore
             )
         )
 
     @classmethod
     async def get_allowed(
-        cls: 'Namespace',
+        cls: Type['Namespace'],
         database: AIOEngine,
         username: str,
         include_disabled: bool = False,
@@ -91,7 +91,7 @@ class Namespace(Model):
 
     @classmethod
     async def get_disabled(
-        cls: type,
+        cls: Type['Namespace'],
         database: AIOEngine,
         username: str
     ) -> List['Namespace']:
@@ -99,7 +99,7 @@ class Namespace(Model):
 
     @classmethod
     async def is_allowed(
-        cls: 'Namespace',
+        cls: Type['Namespace'],
         namespace: str,
         database: AIOEngine,
         username: str,
@@ -165,8 +165,7 @@ class Namespace(Model):
             namespaces = await cls.get_multiple(database, username)
         if namespaces:
             return {
-                ns.namespace: await cls.get_namespace_db(
-                    database, ns.namespace, username, include_disabled)
+                ns.namespace: await cls.get_namespace_db(database, ns.namespace, username, include_disabled)  # noqa: E501
                 for ns in namespaces if namespace in ["default", "all"] or ns.namespace == namespace  # noqa: E501
             }
         return {}

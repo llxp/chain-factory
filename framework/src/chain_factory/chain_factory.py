@@ -6,7 +6,7 @@ This File has the main class for the chain-factory framework
 # from typing import Dict
 from asyncio import AbstractEventLoop
 from asyncio import new_event_loop
-from logging import debug
+from logging import debug, error, exception, warning
 from typing import Optional
 from typing import Type
 
@@ -153,6 +153,19 @@ class ChainFactory():
         outer_wrapper = self.task(name, repeat_on_timeout)
         outer_wrapper(func)
 
+    def add_error_context(self):
+        """
+        Decorator to add workflow context to a task
+
+        - Adds the workflow context to the task
+        """
+        def wrapper(func):
+            func_flag = getattr(func, "error_context", False)
+            if not func_flag:
+                setattr(func, "error_context", True)
+            return func
+        return wrapper
+
     def add_error_handler(self, exc_type: Type[Exception], func: ErrorCallbackType):  # noqa: E501
         """
         Adds an error handler to the framework
@@ -165,8 +178,18 @@ class ChainFactory():
 
         - Will be invoked by the `run` method
         """
-        self._update_task_queue_handlers(loop)
-        await self.task_queue_handlers.listen()
+        try:
+            self._update_task_queue_handlers(loop)
+            await self.task_queue_handlers.listen()
+        except KeyboardInterrupt:
+            warning("Stopping the task queue")
+            await self.task_queue_handlers.stop_node()
+            loop.close()
+        except Exception as e:
+            error("Error in task queue: ")
+            exception(e)
+            await self.task_queue_handlers.stop_node()
+            loop.stop()
 
     def _update_task_queue_handlers(self, loop: AbstractEventLoop):
         """
@@ -198,6 +221,7 @@ class ChainFactory():
             if not loop_provided:
                 debug("Starting event loop")
                 loop.run_forever()
+                # loop.run_until_complete(self.listen(loop))
         except KeyboardInterrupt:
             loop.run_until_complete(self.task_queue_handlers.stop_node())
         finally:

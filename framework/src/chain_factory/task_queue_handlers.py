@@ -15,8 +15,8 @@ from .node_registration import NodeRegistration
 from .credentials_pool import CredentialsPool
 from .cluster_heartbeat import ClusterHeartbeat
 # queue handlers
-from .blocked_handler import BlockedHandler
-from .wait_handler import WaitHandler
+# from .blocked_handler import BlockedHandler
+# from .wait_handler import WaitHandler
 from .task_handler import TaskHandler
 
 # models
@@ -26,12 +26,12 @@ from .models.mongodb_models import ErrorCallbackType
 # from .wrapper.mongodb_client import MongoDBClient
 
 # settings
-from .common.settings import incoming_block_list_redis_key
-from .common.settings import wait_block_list_redis_key
+# from .common.settings import incoming_block_list_redis_key
+# from .common.settings import wait_block_list_redis_key
 from .common.settings import wait_queue as wait_queue_default
 from .common.settings import task_queue as task_queue_default
 from .common.settings import incoming_blocked_queue as incoming_blocked_queue_default  # noqa: E501
-from .common.settings import wait_blocked_queue as wait_blocked_queue_default
+# from .common.settings import wait_blocked_queue as wait_blocked_queue_default
 
 
 class TaskQueueHandlers():
@@ -52,11 +52,10 @@ class TaskQueueHandlers():
         self.namespace_key = namespace_key
         self.worker_count = worker_count
         self.task_timeout = task_timeout
-        self._task_handler: TaskHandler = TaskHandler(
-            namespace=self.namespace, node_name=self.node_name)
-        self._wait_handler = WaitHandler()
-        self._incoming_blocked_handler = BlockedHandler()
-        self._wait_blocked_handler = BlockedHandler()
+        self._task_handler: TaskHandler = TaskHandler(self.namespace, self.node_name)  # noqa: E501
+        # self._wait_handler = WaitHandler()
+        # self._incoming_blocked_handler = BlockedHandler()
+        # self._wait_blocked_handler = BlockedHandler()
         self.client_pool = ClientPool()
         # self._task_waiter: Dict[str, TaskWaiter] = {}
         self._credentials_pool = CredentialsPool(endpoint, username, password, {namespace: namespace_key})  # noqa: E501
@@ -76,34 +75,30 @@ class TaskQueueHandlers():
 
     @property
     def task_queue(self):
-        # self.namespaced(task_queue_default)
         return task_queue_default
 
     @property
     def incoming_blocked_queue(self):
-        # self.namespaced(incoming_blocked_queue_default)
         return incoming_blocked_queue_default
 
-    @property
-    def wait_blocked_queue(self):
-        # self.namespaced(wait_blocked_queue_default)
-        return wait_blocked_queue_default
+    # @property
+    # def wait_blocked_queue(self):
+    #     return wait_blocked_queue_default
 
     @property
     def wait_queue(self):
-        # self.namespaced(wait_queue_default)
         return wait_queue_default
 
-    @property
-    def incoming_block_list(self):
-        return incoming_block_list_redis_key
+    # @property
+    # def incoming_block_list(self):
+    #     return incoming_block_list_redis_key
 
-    @property
-    def wait_block_list(self):
-        return wait_block_list_redis_key
+    # @property
+    # def wait_block_list(self):
+    #     return wait_block_list_redis_key
 
     async def redis_client(self):
-        return await self.client_pool.redis_client()
+        return await self.client_pool.redis_client(loop=self.loop)
 
     @property
     def mongodb_client(self):
@@ -130,9 +125,9 @@ class TaskQueueHandlers():
             loop=self.loop,
         )
         rabbitmq_url = self.credentials.rabbitmq
-        await self._init_wait_handler(rabbitmq_url)
-        await self._init_incoming_blocked_handler(rabbitmq_url)
-        await self._init_wait_blocked_handler(rabbitmq_url)
+        # await self._init_wait_handler(rabbitmq_url)
+        # await self._init_incoming_blocked_handler(rabbitmq_url)
+        # await self._init_wait_blocked_handler(rabbitmq_url)
         await self._init_task_handler(rabbitmq_url)
         # init cluster heartbeat
         await self._init_cluster_heartbeat()
@@ -141,60 +136,59 @@ class TaskQueueHandlers():
 
     async def _get_credentials(self):
         await self._credentials_pool.init()
-        self.credentials = await self._credentials_pool.get_credentials(
-            self.namespace, self.namespace_key)
+        self.credentials = await self._credentials_pool.get_credentials(self.namespace, self.namespace_key)  # noqa: E501
 
-    async def _init_wait_handler(self, rabbitmq_url: str):
-        """
-        Start the wait handler queue listener
-        """
-        if self.loop is None:
-            raise Exception("No loop provided")
-        await self._wait_handler.init(
-            rabbitmq_url=rabbitmq_url,
-            node_name=self.node_name,
-            redis_client=await self.redis_client(),
-            queue_name=self.task_queue,
-            wait_queue_name=self.wait_queue,
-            blocked_queue_name=self.wait_blocked_queue,
-            loop=self.loop
-        )
+    # async def _init_wait_handler(self, rabbitmq_url: str):
+    #     """
+    #     Start the wait handler queue listener
+    #     """
+    #     if self.loop is None:
+    #         raise Exception("No loop provided")
+    #     await self._wait_handler.init(
+    #         rabbitmq_url=rabbitmq_url,
+    #         node_name=self.node_name,
+    #         redis_client=await self.redis_client(),
+    #         queue_name=self.task_queue,
+    #         wait_queue_name=self.wait_queue,
+    #         blocked_queue_name=self.wait_blocked_queue,
+    #         loop=self.loop
+    #     )
 
-    async def _init_incoming_blocked_handler(self, rabbitmq_url: str):
-        """
-        Init the blocked queue for all blocked tasks,
-        which are blocked before even getting to the actual processing
-        --> If task is on Blacklist/Blocklist
-        --> Node is set to not respond to any of those tasks
-        --> Node is in standby mode for those tasks
-        """
-        if self.loop is None:
-            raise Exception("No loop provided")
-        await self._incoming_blocked_handler.init(
-            rabbitmq_url=rabbitmq_url,
-            node_name=self.node_name,
-            redis_client=await self.redis_client(),
-            task_queue_name=self.task_queue,
-            blocked_queue_name=self.incoming_blocked_queue,
-            block_list_name=self.incoming_block_list,
-            loop=self.loop
-        )
+    # async def _init_incoming_blocked_handler(self, rabbitmq_url: str):
+    #     """
+    #     Init the blocked queue for all blocked tasks,
+    #     which are blocked before even getting to the actual processing
+    #     --> If task is on Blacklist/Blocklist
+    #     --> Node is set to not respond to any of those tasks
+    #     --> Node is in standby mode for those tasks
+    #     """
+    #     if self.loop is None:
+    #         raise Exception("No loop provided")
+    #     await self._incoming_blocked_handler.init(
+    #         rabbitmq_url=rabbitmq_url,
+    #         node_name=self.node_name,
+    #         redis_client=await self.redis_client(),
+    #         task_queue_name=self.task_queue,
+    #         blocked_queue_name=self.incoming_blocked_queue,
+    #         block_list_name=self.incoming_block_list,
+    #         loop=self.loop
+    #     )
 
-    async def _init_wait_blocked_handler(self, rabbitmq_url: str):
-        """
-        Init the blocked queue listener for all waiting tasks (failed, etc.)
-        """
-        if self.loop is None:
-            raise Exception("No loop provided")
-        await self._wait_blocked_handler.init(
-            rabbitmq_url=rabbitmq_url,
-            node_name=self.node_name,
-            redis_client=await self.redis_client(),
-            task_queue_name=self.wait_queue,
-            blocked_queue_name=self.wait_blocked_queue,
-            block_list_name=self.wait_block_list,
-            loop=self.loop
-        )
+    # async def _init_wait_blocked_handler(self, rabbitmq_url: str):
+    #     """
+    #     Init the blocked queue listener for all waiting tasks (failed, etc.)
+    #     """
+    #     if self.loop is None:
+    #         raise Exception("No loop provided")
+    #     await self._wait_blocked_handler.init(
+    #         rabbitmq_url=rabbitmq_url,
+    #         node_name=self.node_name,
+    #         redis_client=await self.redis_client(),
+    #         task_queue_name=self.wait_queue,
+    #         blocked_queue_name=self.wait_blocked_queue,
+    #         block_list_name=self.wait_block_list,
+    #         loop=self.loop
+    #     )
 
     async def _init_task_handler(self, rabbitmq_url: str):
         """
@@ -215,6 +209,7 @@ class TaskQueueHandlers():
         )
         self._task_handler.task_timeout = self.task_timeout
         self._task_handler.update_task_timeout()
+        self._task_handler.update_error_handlers()
 
     async def _init_cluster_heartbeat(self):
         """
@@ -243,6 +238,7 @@ class TaskQueueHandlers():
 
     async def stop_node(self):
         await self.stop_listening()
+        self._task_handler.stop()
         running_workflows_counter = 0
         task_runner_count = len(self._task_handler.registered_tasks)
 
@@ -253,10 +249,8 @@ class TaskQueueHandlers():
             info("node is dry")
             await self.stop_heartbeat()
             await self.client_pool.close()
-            redis_client = await self.redis_client()
-            await redis_client.close()
             await self._task_handler.close()
-            await self._wait_handler.close()
+            # await self._wait_handler.close()
             shutdown_log()
 
     def count_running_tasks(self):
@@ -281,17 +275,17 @@ class TaskQueueHandlers():
     async def stop_listening(self):
         info("shutting down node")
         self._task_handler.stop_listening()
-        self._wait_handler.stop_listening()
-        self._wait_blocked_handler.stop_listening()
-        self._incoming_blocked_handler.stop_listening()
+        # self._wait_handler.stop_listening()
+        # self._wait_blocked_handler.stop_listening()
+        # self._incoming_blocked_handler.stop_listening()
 
     async def _listen_handlers(self):
         """
         Start all handlers to listen
         """
-        await self._wait_handler.listen()
-        await self._incoming_blocked_handler.listen()
-        await self._wait_blocked_handler.listen()
+        # await self._wait_handler.listen()
+        # await self._incoming_blocked_handler.listen()
+        # await self._wait_blocked_handler.listen()
         await self._task_handler.listen()
 
     # async def wait_for_task(

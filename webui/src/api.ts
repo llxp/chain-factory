@@ -5,7 +5,7 @@ import { signOutAsync } from "./pages/signin/signin.slice";
 import { HandleWorkflowResponse, PagedTaskLogs, PagedWorkflows, PagedWorkflowTasks, WorkflowMetrics, WorkflowStatus } from "./pages/workflows/WorkflowTable/models";
 import { store } from "./store";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
-import { HTTPException, NodeMetricsResponse, RefreshTokenResponse, SignInRequest, SignInResponse } from "./models";
+import { HTTPException, NodeMetricsResponse, RefreshTokenResponse, SignInRequest, SignInResponse, UserProfile } from "./models";
 
 const redirectCallback: { (): void } = () => {
   store.dispatch(signOutAsync());
@@ -160,4 +160,17 @@ export async function deleteNamespace(namespace: string) {
 
 export async function deleteNode(namespace: string, node: string) {
   return axios.delete<string | HTTPException>(`/api/v1/node/${node}?namespace=${namespace}`).then(response => response.data);
+}
+
+export async function deleteWorkflow(namespace: string, workflowId: string) {
+  return axios.delete<HandleWorkflowResponse | HTTPException>(`/api/v1/workflows/${workflowId}?namespace=${namespace}`).then(response => response.data);
+}
+
+export async function getUserProfile() {
+  return axios.get<UserProfile>("/auth/user_profile").then(response => response.data).catch(error => {
+    if (error.response.status === 401) {
+      return null;
+    }
+    throw error;
+  });
 }

@@ -30,6 +30,20 @@ async def get_username(request: Request):
         return None
 
 
+async def get_token(request: Request):
+    try:
+        return request.state.token
+    except AttributeError:
+        return None
+
+
+async def get_refresh_token(request: Request):
+    try:
+        return request.state.refresh_token
+    except AttributeError:
+        return None
+
+
 async def get_hostname(request: Request):
     try:
         return request.url.hostname

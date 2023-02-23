@@ -1,4 +1,7 @@
-from logging import error, info, debug
+# from json import dumps
+from logging import error, info, debug, warning
+from os import getenv
+from uuid import uuid4
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from httpx import ConnectError, ConnectTimeout
 from odmantic import AIOEngine
@@ -18,8 +21,13 @@ from .models.user_information import UserInformation
 from .models.token import TokenResponse
 from .models.credentials_token import CredentialsToken
 from .utils.credentials import get_domain
-from .utils.https import get_https_certificates, get_ca_certificates
+from .utils.https import get_verify_context
 from .utils.request import get_server_secret, get_odm_session
+
+
+breakglass_username = getenv("BREAKGLASS_USERNAME", "breakglass")
+breakglass_domain = getenv("BREAKGLASS_DOMAIN", "breakglass")
+breakglass_password = getenv("BREAKGLASS_PASSWORD", "breakglass")
 
 
 api = APIRouter()
@@ -33,6 +41,18 @@ async def login(
     database: AIOEngine = Depends(get_odm_session),
     server_secret: str = Depends(get_server_secret)
 ):
+    breakglass_user = f"{breakglass_username}@{breakglass_domain}"
+    if credentials.username == breakglass_user and credentials.password == breakglass_password:  # noqa: E501
+        warning(f"breakglass login for user {breakglass_username}")
+        hostname = request.url.hostname or ""
+        user_information = UserInformation(
+            user_id=breakglass_username,
+            username=breakglass_username,
+            display_name=breakglass_username,
+            email=breakglass_username,
+            groups=['breakglass'],
+        )
+        return await create_tokens(hostname, credentials, server_secret, user_information, database, response)  # noqa: E501
     if credentials.username and credentials.password:
         debug(f"login request: {credentials.username}")
         idp_configs = await IdpDomainConfig.get(database, credentials.username)
@@ -43,46 +63,58 @@ async def login(
             config: Union[IdpDomainConfig, None] = None
             async for config in idp_configs:
                 debug(f"idp config found: {config.domain}")
-                user_information = await get_user_information(
-                    credentials, config)
+                user_information = await get_user_information(credentials, config)  # noqa: E501
                 if user_information:
                     hostname = request.url.hostname or ""
                     info(user_information)
-                    access_token = await create_token(
-                        hostname,
-                        credentials,
-                        server_secret,
-                        user_information,
-                        database,
-                    )
-                    refresh_token = TokenResponse(
-                        token=await create_refresh_token(
-                            database,
-                            hostname,
-                            server_secret,
-                            credentials
-                        ),
-                        token_type='bearer'
-                    )
-                    response.set_cookie(
-                        key='Authorization',
-                        value='Bearer ' + access_token.token,
-                        max_age=60 * 60,  # cookie will expire in 60 minutes
-                        httponly=True,
-                        samesite='none',
-                        secure=True,
-                    )
-                    response.set_cookie(
-                        key='RefreshToken',
-                        value='Bearer ' + refresh_token.token,
-                        max_age=60 * 60 * 24,  # cookie will expire in 24 hours
-                        httponly=True,
-                        samesite='none',
-                        secure=True,
-                    )
-                    return dict(access_token=access_token, refresh_token=refresh_token)  # noqa: E501
+                    return await create_tokens(hostname, credentials, server_secret, user_information, database, response)  # noqa: E501
     info(f"login failed for user {credentials.username}")
     raise HTTPException(status_code=403, detail='authentication failed')
+
+
+async def create_tokens(hostname: str, credentials: LoginRequest, server_secret: str, user_information: UserInformation, database: AIOEngine, response: Response):  # noqa: E501
+    jti = str(uuid4())
+    access_token = await create_token(
+        hostname,
+        credentials,
+        server_secret,
+        user_information,
+        credentials.username,
+        database,
+        jti,
+    )
+    refresh_token = TokenResponse(
+        token=await create_refresh_token(
+            database,
+            hostname,
+            server_secret,
+            user_information,
+            credentials,
+            jti
+        ),
+        token_type='bearer'
+    )
+    response.delete_cookie(key='Authorization')
+    response.set_cookie(
+        key='Authorization',
+        value='Bearer ' + access_token.token,
+        max_age=60 * 60,  # cookie will expire in 60 minutes
+        httponly=True,
+        samesite='none',
+        secure=True,
+    )
+    response.delete_cookie(key='RefreshToken')
+    response.set_cookie(
+        key='RefreshToken',
+        value='Bearer ' + refresh_token.token,
+        max_age=60 * 60 * 24,  # cookie will expire in 24 hours
+        httponly=True,
+        samesite='none',
+        secure=True,
+    )
+    # response.body = dumps(dict(access_token=access_token, refresh_token=refresh_token)).encode('utf-8')  # noqa: E501
+    return dict(access_token=access_token, refresh_token=refresh_token)  # noqa: E501
+    # return response
 
 
 async def get_user_information(
@@ -91,13 +123,13 @@ async def get_user_information(
 ) -> Union[UserInformation, None]:
     headers = {'content-type': 'application/json'}
     url = idp_config.endpoints.user_information_endpoint or ""
-    client_certificates = await get_https_certificates(url, idp_config)
-    ca_certificates = await get_ca_certificates(url)  # noqa: E501
-    async with AsyncClient(cert=client_certificates, verify=ca_certificates) as client:  # noqa: E501
+    cert_context = await get_verify_context(url, idp_config)
+    async with AsyncClient(verify=cert_context) as client:
         try:
-            response = await perform_user_information_request(
-                credentials, headers, client, url)
+            response = await perform_user_information_request(credentials, headers, client, url)  # noqa: E501
+            debug(f"user information request response: {response}")
             if response:
+                debug(f"user information request success: {url}")
                 return response
         except ConnectError:
             error(f"user information request failed with connect error: {url}")
@@ -126,6 +158,7 @@ async def perform_user_information_request(
             try:
                 return UserInformation(**response)
             except ValidationError:
+                debug(f"invalid user information response: {response}")
                 return None
         error(f"response was: {user_information_response.text}")
     error(f"user information request failed: {url}")
@@ -156,7 +189,9 @@ async def create_token(
     credentials: LoginRequest,
     server_secret: str,
     user_information: UserInformation,
+    username: str,
     database: AIOEngine,
+    jti: str,
 ):
     # user has roles
     domain = await get_domain(credentials.username)
@@ -165,8 +200,7 @@ async def create_token(
     # aud/audience is the list of scopes
     requested_scopes = credentials.scopes or []
     allowed_scopes = get_scopes(requested_scopes, roles) or []
-    token_response = TokenResponse.create_token(
-        hostname, credentials.username, allowed_scopes, server_secret)
+    token_response = TokenResponse.create_token(hostname, user_information, username, allowed_scopes, server_secret, jti)  # noqa: E501
     if not token_response:
         raise HTTPException(status_code=400, detail='no scopes requested')  # noqa: E501
     return token_response
@@ -176,19 +210,25 @@ async def create_refresh_token(
     database,
     hostname: str,
     server_secret: str,
-    credentials: LoginRequest
+    user_information: UserInformation,
+    credentials: LoginRequest,
+    jti: str,
 ):
     token = CredentialsToken(
-        iss=hostname,  # type: ignore
+        iss=hostname,
         username=credentials.username,
         password=credentials.password,
+        jti=jti,
     )
     new_refresh_token = RefreshToken(
         jti=token.jti,
-        username=credentials.username,
+        username=user_information.username,
         expires_at=token.exp,
         created_at=token.iat,
-        scopes=credentials.scopes
+        scopes=credentials.scopes,
+        user_id=user_information.user_id,
+        display_name=user_information.display_name,
+        email=user_information.email,
     )
     await database.save(new_refresh_token)
     encrypted_bytes = encrypt(

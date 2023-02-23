@@ -1,7 +1,7 @@
 import { Action, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { RootState } from "../../../store";
 import { PagedWorkflowTasks, PagedListItemType, HandleWorkflowResponse, PagedWorkflows, WorkflowStatus, PagedTaskLogs } from "./models";
-import { handleWorkflow as handleWorkflowAPI, taskLogs, workflows, workflowStatus, workflowTasks } from "../../../api";
+import { deleteWorkflow, handleWorkflow as handleWorkflowAPI, taskLogs, workflows, workflowStatus, workflowTasks } from "../../../api";
 import { setTaskLogs, setTaskLogsError, setWorkflows, setWorkflowsError, setWorkflowsFetching, setWorkflowTasks, setWorkflowTasksError, setWorkflowTasksFetching, updateTaskStatus, updateWorkflowStatus } from "./WorkflowTable.reducer";
 import { workflowsToListItemType } from "./utils";
 
@@ -115,6 +115,10 @@ export function handleWorkflow(
 ): ThunkAction<Promise<HandleWorkflowResponse>, RootState, undefined, any> {
   return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     try {
+      if (action === "delete") {
+        const response = await deleteWorkflow(namespace, workflowId);
+        return response as HandleWorkflowResponse;
+      }
       const response = await handleWorkflowAPI(namespace, action, workflowId);
       return response as HandleWorkflowResponse;
     } catch (error) {

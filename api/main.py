@@ -48,6 +48,11 @@ origins = default_origins.split(",") if default_origins else default_cors_origin
 print(f"origins {origins}")
 debug(f"origins: {origins}")
 
+breakglass_username = getenv("BREAKGLASS_USERNAME", "breakglass")
+breakglass_domain = getenv("BREAKGLASS_DOMAIN", "breakglass")
+bg_username_lower = breakglass_username.lower()
+bg_domain_lower = breakglass_domain.lower()
+
 # debug("mongodb_url: %s", mongodb_url)
 # debug("mongodb_database: %s", mongodb_database)
 # debug("redis_url: %s", redis_url)
@@ -187,6 +192,8 @@ async def set_request_parameter(request: Request, call_next):
     # TODO: place additional global variables here
     # to make them available during a request
     # e.g. request.db_session = db_session
+    request.state.breakglass_username = bg_username_lower
+    request.state.breakglass_domain = bg_domain_lower
     request.state.server_secret = server_secret
     request.state.odm_session = odm_session
     request.state.idp_credentials = Credentials(

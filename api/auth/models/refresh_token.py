@@ -9,3 +9,6 @@ class RefreshToken(Model):
     created_at: int
     scopes: List[str] = Field(default=[])
     revoked: bool = Field(default=False)
+    user_id: str = ''
+    display_name: str = ''
+    email: str = ''

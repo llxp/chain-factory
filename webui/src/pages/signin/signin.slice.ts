@@ -1,8 +1,8 @@
 import { Action, createSlice, PayloadAction, ThunkAction, ThunkDispatch } from "@reduxjs/toolkit";
 import { RootState } from "../../store";
 import { useDispatch } from "react-redux";
-import { getAccessTokenWithRefreshToken, signIn } from "../../api";
-import { SignInRequest } from "../../models";
+import { getAccessTokenWithRefreshToken, getUserProfile, signIn } from "../../api";
+import { HTTPException, SignInRequest, UserProfile } from "../../models";
 
 interface LoginState {
   token: string;
@@ -53,11 +53,11 @@ export function signInAsync (username: string, password: string, scopes: string[
       };
       const response = await signIn(signInRequest);
       if (response.access_token) {
-        dispatch(setToken(response.access_token.token));
-        if (response.refresh_token) {
-          dispatch(setRefreshToken(response.refresh_token.token));
-        }
-        dispatch(setLoggedIn(true));
+        // dispatch(setToken(response.access_token.token));
+        // if (response.refresh_token) {
+        //   dispatch(setRefreshToken(response.refresh_token.token));
+        // }
+        // dispatch(setLoggedIn(true));
         return true;
       }
       return false;
@@ -79,14 +79,25 @@ export function signInAsync (username: string, password: string, scopes: string[
   // );
 }
 
+export const getUserProfileAsync = (): ThunkAction<Promise<UserProfile | null>, RootState, undefined, any> => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
+    try {
+      const response = await getUserProfile();
+      return response;
+    } catch (error) {
+      console.log(error);
+      return null;
+    }
+  }
+}
+
+
 export const signOutAsync = (): ThunkAction<Promise<boolean>, RootState, undefined, any> => {
-  return (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
+  return async (dispatch: ThunkDispatch<RootState, undefined, Action>) => {
     dispatch(setToken(''));
     dispatch(setLoggedIn(false));
-    dispatch({
-      type: 'signin/logout'
-    })
-    return new Promise<boolean>(() => true);
+    dispatch({type: 'signin/logout'});
+    return true;
   }
 }
 
@@ -96,7 +107,7 @@ export const refreshAccessTokenAsync = (refreshToken: string): ThunkAction<Promi
     if (accessToken && accessToken.token && accessToken) {
       dispatch(setToken(accessToken.token));
     }
-    return new Promise<boolean>(() => true);
+    return true;
   }
 }
 
