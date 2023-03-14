@@ -51,16 +51,12 @@ class HTTPBearer(HTTPBase):
         scheme, credentials = get_authorization_scheme_param(authorization)
         if not (authorization and scheme and credentials):
             if self.auto_error:
-                raise HTTPException(
-                    status_code=HTTP_403_FORBIDDEN, detail="Not authenticated")  # noqa: E501
+                raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Not authenticated")  # noqa: E501
             else:
                 return None
         if scheme.lower() != "bearer":
             if self.auto_error:
-                raise HTTPException(
-                    status_code=HTTP_403_FORBIDDEN,
-                    detail="Invalid authentication credentials",
-                )
+                raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Invalid authentication credentials")  # noqa: E501
             else:
                 return None
         return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)  # noqa: E501
@@ -124,10 +120,7 @@ class CheckScope:
             except ExpiredSignatureError:
                 raise HTTPException(status_code=403, detail='Token expired')
             except InvalidAudienceError:
-                raise HTTPException(
-                    status_code=401,
-                    detail='User doesn\'t have the appropriate roles assigned'
-                )
+                raise HTTPException(status_code=401, detail='User doesn\'t have the appropriate roles assigned')  # noqa: E501
         return None
 
 

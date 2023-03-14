@@ -191,6 +191,9 @@ class RedisCredentials(EmbeddedModel):
             ],
         ):
             raise HTTPException(status_code=500, detail="failed to set redis acl")  # noqa: E501
+        # save the acl
+        if not client.acl_save():
+            raise HTTPException(status_code=500, detail="failed to save redis acl")  # noqa: E501
         return cls(
             key_prefix=db_name,
             username=username,

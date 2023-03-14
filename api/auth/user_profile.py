@@ -70,6 +70,7 @@ async def get_user_information_impersonated(
     idp_config: IdpDomainConfig,
     user_ids: List[str]
 ) -> Optional[UserInformation]:
+    user_ids_lower = [user_id.lower() for user_id in user_ids]
     headers = {'content-type': 'application/json'}
     url = idp_config.endpoints.translate_users_endpoint or ""
     cert_context = await get_verify_context(url, idp_config)
@@ -79,7 +80,8 @@ async def get_user_information_impersonated(
             debug(f"user information request response: {response}")
             if response and response.users:
                 if isinstance(response.users, dict) and len(response.users) > 0:  # noqa: E501
-                    return response.users[user_ids[0]]
+                    users_lower = {k.lower(): v for k, v in response.users.items()}  # noqa: E501
+                    return users_lower[user_ids_lower[0]]
                 elif isinstance(response.users, UserInformation):
                     return response.users
         except ConnectError:
