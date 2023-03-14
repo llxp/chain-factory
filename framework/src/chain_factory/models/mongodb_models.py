@@ -32,8 +32,8 @@ class Workflow(Model):
 
 
 class ErrorContext(BaseModel):
-    workflow: Optional[Workflow]
-    task: Optional["Task"]
+    workflow: Optional[Workflow] = None
+    task: Optional["Task"] = None
 
 
 CallbackType = Callable[..., "TaskReturnType"]

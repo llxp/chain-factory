@@ -12,7 +12,6 @@ from odmantic import AIOEngine
 from inspect import signature
 from asyncio import AbstractEventLoop
 from asyncio import ensure_future
-from pebble import ProcessPool
 
 # direct imports
 from .task_runner import TaskRunner
@@ -66,7 +65,6 @@ class TaskHandler(QueueHandler):
         self.namespace: str = namespace
         self.node_name: str = node_name
         self._current_task: Union[Task, None] = None
-        self.process_pool = ProcessPool(max_workers=worker_count)
 
     async def init(
         self,
@@ -89,7 +87,7 @@ class TaskHandler(QueueHandler):
         await self.block_list.init()
 
     def stop(self):
-        self.process_pool.stop()
+        pass
 
     def update_task_timeout(self):
         for _, runner in self.registered_tasks.items():

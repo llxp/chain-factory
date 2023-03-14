@@ -124,10 +124,11 @@ class TaskThread(InterruptableThread):
             if isinstance(e, type_kind):
                 debug(f"Found error handler for exception: {e}")
                 can_accept_error_context = getattr(exc_handler, "error_context", False)  # noqa: E501
-                error_context = ErrorContext(
-                    workflow=self.workflow,
-                    task=self.task,
-                )
+                error_context = ErrorContext()
+                if self.workflow is not None:
+                    error_context.workflow = self.workflow
+                if self.task is not None:
+                    error_context.task = self.task
                 if iscoroutinefunction(exc_handler):
                     if can_accept_error_context:
                         return await exc_handler(error_context, e, self._name, self._arguments)  # noqa: E501
