@@ -50,12 +50,7 @@ async def new_task(
         if namespace_db is not None:
             node_tasks_collection = namespace_db.get_collection(NodeTasks.__collection__)  # noqa: E501
             if node_tasks_collection is not None:
-                node_tasks = await node_tasks_collection.find(
-                    {
-                        # "namespace": namespace,
-                        "tasks.name": {'$in': [task_name]},
-                    }
-                ).to_list(None)
+                node_tasks = await node_tasks_collection.find({"tasks.name": {'$in': [task_name]}}).to_list(None)  # noqa: E501
                 node_tasks_objs = [NodeTasks(**node_task) for node_task in node_tasks]  # noqa: E501
                 if len(node_tasks_objs) > 0:
                     missing_arguments_tasks: Dict[str, List[str]] = {}

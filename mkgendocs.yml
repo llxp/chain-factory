@@ -1,18 +1,47 @@
-sources_dir: docs/sources
-templates_dir: docs/templates
-repo: https://github.com/llxp/chain-factory #link to sources on github
+sources_dir: docs/
+templates_dir: docs_templates
+repo: https://github.com/llxp/chain-factory  # link to sources on github
 version: master #link to sources on github
+additional_dirs:
+  - ./img/
 
 pages:
-  - page: "chain_factory/task_queue/credentials_retriever.md"
-    source: "framework/src/chain_factory/task_queue/credentials_retriever.py"
+  - page: "public/chain_factory.md"
+    source: "framework/src/chain_factory/chain_factory.py"
+    classes:
+      - ChainFactory
+
+  # credentials
+  # ----------------------------------------------------------------
+  - page: "private/credentials/credentials_retriever.md"
+    source: "framework/src/chain_factory/credentials_retriever.py"
     classes:
       - CredentialsRetriever
-
-  - page: "chain_factory/task_queue/task_queue.md"
-    source: "framework/src/chain_factory/task_queue/task_queue.py"
+  
+  - page: "private/credentials/credentials_pool.md"
+    source: "framework/src/chain_factory/credentials_pool.py"
     classes:
-      - TaskQueue
+      - CredentialsPool
+  
+  - page: "private/credentials/credentials_model.md"
+    source: "framework/src/chain_factory/models/credentials.py"
+    classes:
+      - RabbitMQCredentials
+      - RedisCredentials
+      - MongoDBCredentials
+      - ManagementCredentials
+      - ManagementCredentialsCollection
+  # ----------------------------------------------------------------
+
+  # TaskQueueHandlers
+  # ----------------------------------------------------------------
+  - page: "private/task_queue_handlers/task_queue_handlers.md"
+    source: "framework/src/chain_factory/task_queue_handlers.py"
+    classes:
+      - TaskQueueHandlers
+  
+  - page: "private/task_queue_handlers/"
+  # ----------------------------------------------------------------
 
   # creates an index page based on everything from target source
   # - page: "api/layers/index.md"

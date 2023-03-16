@@ -43,6 +43,7 @@ async def stop_node(
     username: str = Depends(get_username),
     namespaces: List[Namespace] = Depends(get_allowed_namespaces),
 ):
+    # TODO: review this function, if it is needed
     namespace_dbs = await Namespace.get_namespace_dbs(database, username)
     collections: List[AsyncIOMotorCollection] = [
         db.get_collection("node_tasks") for ns, db in namespace_dbs.items()
@@ -90,10 +91,12 @@ async def node_metrics(
     collections = {
         ns: db.get_collection("node_tasks") for ns, db in namespace_dbs.items()
     }
+    # create dictionary: {namespace: node_tasks}
     registered_tasks_result = {
-        ns: doc for ns, collection in collections.items()
-        async for doc in collection.find()
-        if (ns == namespace or default_namespace(namespace))
+        ns: doc  # key: namespace, value: node_tasks
+        for ns, collection in collections.items()  # iterate over all collections: key: ns (namespace), value: collection (node_tasks)
+        async for doc in collection.find()  # retrieve all documents from collection
+        if (ns == namespace or default_namespace(namespace))  # check, if default namespace or specific namespace
     }
     nodes = list()
     for ns, task in registered_tasks_result.items():

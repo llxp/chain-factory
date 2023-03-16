@@ -47,6 +47,7 @@ async def stop_workflow(
     if namespace_db is not None:
         workflow_status_collection = namespace_db.get_collection("workflow_status")  # noqa: E501
         if workflow_status_collection is not None:
+            # publish stop broadcast message to redis
             redis_client.publish(
                 namespace + '_' + task_control_channel_redis_key,
                 TaskControlMessage(
@@ -61,6 +62,7 @@ async def stop_workflow(
                         ]
                     })
             ):
+                # create new workflow status entry, to mark workflow as stopped
                 await workflow_status_collection.insert_one(dict(
                     workflow_id=workflow_id,
                     namespace=namespace,
@@ -219,7 +221,15 @@ async def restart_workflow(
                             created_date=datetime.utcnow(),
                             tags=tags,
                         )
+                        # create new empty workflow
                         wf_saved: InsertOneResult = await namespace_db.get_collection(Workflow.__collection__).insert_one(dict(new_workflow))  # noqa: E501
+                        # update workflow with workflow id
+                        await namespace_db.get_collection(Workflow.__collection__).update_one(  # noqa: E501
+                            {"_id": wf_saved.inserted_id},
+                            {"$set": dict(workflow_id=str(wf_saved.inserted_id))},  # noqa: E501
+                        )
+
+                        # create new task
                         new_task: Task = Task(
                             name=name,
                             arguments=arguments,
@@ -227,22 +237,12 @@ async def restart_workflow(
                             tags=tags,
                             workflow_id=str(wf_saved.inserted_id),  # noqa: E501
                         )
-                        # update workflow with workflow id
-                        await namespace_db.get_collection(Workflow.__collection__).update_one(  # noqa: E501
-                            {"_id": wf_saved.inserted_id},
-                            {"$set": dict(workflow_id=str(wf_saved.inserted_id))},  # noqa: E501
-                        )
                         del new_task.task_id
 
-                        # new_task: Task = Task(
-                        #     name=first_task_obj.task.name,
-                        #     arguments=first_task_obj.task.arguments,
-                        #     node_names=first_task_obj.task.node_names,
-                        #     tags=first_task_obj.task.tags,
-                        # )
                         response = await rabbitmq_client.send(new_task.json())  # noqa: E501
                         if response:
                             return "Workflow restarted"
+
                 raise HTTPException(status_code=500, detail="Failed to restart workflow")  # noqa: E501
             raise HTTPException(status_code=400, detail="Workflow already stopped")  # noqa: E501
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501

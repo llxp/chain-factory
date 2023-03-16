@@ -146,24 +146,27 @@ async def delete_namespace(
     username: str = Depends(get_username),
     database: AIOEngine = Depends(get_odm_session),
     redis_client: Redis = Depends(get_redis_client),
-    rabbitmq_management_api: ManagementApi = Depends(
-        get_rabbitmq_management_api),
+    rabbitmq_management_api: ManagementApi = Depends(get_rabbitmq_management_api),  # noqa: E501
 ):
     namespace_obj = await Namespace.get_disabled_one(database, namespace, username)  # noqa: E501
     if namespace_obj:
-        # TODO/DONE: get namespace db
-        # TODO/DONE: delete namespace db
-        # TODO: delete resources in redis
-        # TODO: delete resources in rabbitmq (vhost)
-        # TODO/DONE: delete namespace document
+        # MongoDB section
+        # --------------------------------
         namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa
         if namespace_db is not None:
             await database.client.drop_database(namespace_db)
             info(f"Deleted namespace db {namespace_db} in mongodb")
+        # --------------------------------
+        # Redis section
+        # --------------------------------
         email_snake_case = username.replace('.', '_').replace('@', '_')
         redis_username = email_snake_case + '_' + namespace
         redis_client.acl_deluser(redis_username)
         info(f"Deleted namespace {namespace} in redis")
+        # --------------------------------
+        # RabbitMQ section
+        # --------------------------------
+        # 1. delete vhost
         domain_snake_case = namespace_obj.domain.replace('.', '_')
         vhost_name = namespace + '_' + domain_snake_case
         try:
@@ -171,13 +174,16 @@ async def delete_namespace(
             info(f"Deleted namespace {namespace} in rabbitmq")
         except ApiError as e:
             error(f"Error deleting namespace {namespace} in rabbitmq: {e}")
+        # 2. delete user
         rabbitmq_username = email_snake_case + '_' + namespace
         try:
             rabbitmq_management_api.user.delete(rabbitmq_username)
             info(f"Deleted namespace {namespace} in rabbitmq")
         except ApiError as e:
             error(f"Error deleting username {rabbitmq_username} for namespace {namespace} in rabbitmq: {e}")  # noqa: E501
+        # --------------------------------
         await database.delete(namespace_obj)
+        # delete namespace obj from mongodb
         info(f"Deleted namespace {namespace} in mongodb")
         return "Namespace deleted"
     raise HTTPException(status_code=401, detail="Namespace does not exist or you do not have access")  # noqa: E501
@@ -205,6 +211,7 @@ async def rename_namespace(
     username: str = Depends(get_username),
     database: AIOEngine = Depends(get_odm_session),
 ):
+    # TODO: please review this, if still necessary/useful
     namespace_obj = await Namespace.get(database, namespace, username)
     if namespace_obj:
         namespace_obj.namespace = new_namespace

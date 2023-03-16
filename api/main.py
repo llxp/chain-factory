@@ -1,4 +1,4 @@
-from logging import debug, info
+from logging import debug
 # , getLogger, Formatter, basicConfig
 # from logging.handlers import SysLogHandler
 from os import getenv
@@ -6,7 +6,6 @@ from os import getenv
 # Import FastAPI for Rest API, Swagger Docs
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import (
     get_redoc_html,
@@ -62,21 +61,12 @@ rabbitmq_url = getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 default_origins = getenv("DEFAULT_CORS_ORIGINS")
 origins = default_origins.split(",") if default_origins else []  # noqa: E501
 print(f"origins {origins}")
-debug(f"origins: {origins}")
 
 # Local admin user account as fallback for WebUI access
 breakglass_username = getenv("BREAKGLASS_USERNAME", "breakglass")
 breakglass_domain = getenv("BREAKGLASS_DOMAIN", "breakglass")
 bg_username_lower = breakglass_username.lower()
 bg_domain_lower = breakglass_domain.lower()
-
-
-async def not_found(request, exc):
-    info(request.url)
-    json = await request.json()
-    info(json)
-    return HTMLResponse(content="<h1>404 NOT FOUND</h1>", status_code=exc.status_code)  # noqa: E501
-
 
 # Initialize FastAPI
 app = FastAPI(docs_url=None, redoc_url=None)

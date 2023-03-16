@@ -54,7 +54,7 @@ Or register the task using the decorator and using an imported function in an ex
 
 ## Architecture
 ### Reccomended Architecture
-![Architecture](../img/CF-Architecture.drawio.svg)
+![Architecture](./img/CF-Architecture.drawio.svg)
 ### Introduction
 - Chain-Factory is per default installed on a kubernetes cluster. An example k3s cluster can be setup using the setup_k3s.sh script.
 ### Components
