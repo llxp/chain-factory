@@ -1,0 +1,93 @@
+version: "3.7"
+
+services:
+
+  # redis
+  # --------------------------------
+  redis:
+    image: redis:7.0.5-alpine
+    volumes:
+      - ./data/redis:/data
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+
+  redis-commander:
+    image: rediscommander/redis-commander
+    environment:
+      - REDIS_PORT=6379
+      - REDIS_HOST=redis
+      - REDIS_DB=0
+    depends_on:
+      - redis
+    ports:
+      - 8001:8081
+    restart: unless-stopped
+  # --------------------------------
+
+  # rabbitmq
+  # --------------------------------
+  rabbitmq:
+    build: services/rabbitmq
+    hostname: my-rabbit
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - ./data/rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:15672"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+    ports:
+      - 8002:15672
+      - 5672:5672
+    restart: unless-stopped
+  # --------------------------------
+
+  # mongodb
+  # --------------------------------
+  mongodb:
+    image: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - 27017:27017
+    restart: unless-stopped
+
+  mongo-express:
+    image: mongo-express
+    restart: unless-stopped
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=root
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=example
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+    ports:
+      - 8003:8081
+  # --------------------------------
+
+  # vault
+  # --------------------------------
+  vault:
+    image: vault:latest
+    container_name: vault
+    volumes:
+      - ./data/vault/file:/vault/file:rw
+      - ./data/vault/config:/vault/config:rw
+      - ./data/vault/data:/vault/data
+      - ./data/vault/policies:/vault/policies
+    environment:
+      - VAULT_ADDR=http://0.0.0.0:8200
+      - VAULT_API_ADDR=http://0.0.0.0:8200
+      - VAULT_ADDRESS=http://0.0.0.0:8200
+      - VAULT_TOKEN='00000000-0000-0000-0000-000000000000'
+      - VAULT_UI=true
+    cap_add:
+      - IPC_LOCK
+    entrypoint: vault server -config=/vault/config/vault.json
+    ports:
+      - 8004:8200
+    restart: unless-stopped
+  # --------------------------------

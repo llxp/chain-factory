@@ -479,14 +479,18 @@ async def delete_workflow_logs(
             collections: List[AsyncIOMotorCollection] = [
                 namespace_dbs[ns].get_collection("task_workflow_association") for ns in namespace_dbs  # noqa: E501
             ]
+            # get all tasks for this workflow
             cursors = [
                 collection.find({'workflow_id': workflow_id}) for collection in collections  # noqa: E501
             ]
             tasks_results = [
                 await collection.to_list(None) for collection in cursors
             ]
+            # get all task_ids for this workflow
             task_ids = [
-                task['task']['task_id'] for task in tasks_results[0]
+                task_dict['task']['task_id']
+                for task in tasks_results
+                for task_dict in task
             ]
             logs_collections = [
                 namespace_dbs[ns].get_collection("logs") for ns in namespace_dbs  # noqa: E501
