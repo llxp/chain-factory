@@ -13,7 +13,7 @@ from pymongo.errors import OperationFailure
 
 from ..utils import encrypt
 
-is_dev_mode = getenv("DEV_MODE", "true") == "true"
+is_dev_mode = getenv("DEV_MODE", "true").lower() == "true"
 
 
 class MongoDBCredentials(EmbeddedModel):
