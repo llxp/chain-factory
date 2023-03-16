@@ -2,6 +2,8 @@ from logging import debug, info
 # , getLogger, Formatter, basicConfig
 # from logging.handlers import SysLogHandler
 from os import getenv
+
+# Import FastAPI for Rest API, Swagger Docs
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -12,82 +14,61 @@ from fastapi.openapi.docs import (
     get_swagger_ui_oauth2_redirect_html,
 )
 from fastapi.openapi.utils import get_openapi
+
+# ODM: Object Document Mapper to serialize classes into MongoDB Objects
 from odmantic import AIOEngine
+
+# odmantic uses motor
 from motor.motor_asyncio import AsyncIOMotorClient
+
+# Accesses ManagementAPI Redis
 from amqpstorm.management import ManagementApi
 
 from api.auth.models.credentials import Credentials
 from api.routes import api
 from .auth import api as auth_api
-from .constants import default_cors_origins
-
 
 # environment variables
 # --------------------------------
-# openssl rand -hex 32
+
+# Server secret to sign access tokens (openssl rand -hex 32)
 server_secret = getenv(
     "SERVER_SECRET",
     "0d763e4211a42b77e54a2f0a694c1f538bac8479da31a6926024bd445213ceef"
 )
+
+# MongoDB details
 mongodb_url = getenv(
     "MONGODB_URL",
     "mongodb://root:example@127.0.0.1:27017/test?authSource=admin"
 )
 mongodb_database = getenv("MONGODB_DATABASE", "test")
+
+# Redis details
 redis_url = getenv("REDIS_URL", "redis://localhost")
+
+# Service account for fetching user details from the Active Directory
 translate_users_username = getenv("IDP_USERNAME", "llxp@jumpcloud.com")
 translate_users_password = getenv("IDP_PASSWORD", "WmNNJPf7wTurU9t")
+
+# RabbitMQ details
 rabbitmq_management_host = getenv("RABBITMQ_MANAGEMENT_HOST", "127.0.0.1")
 rabbitmq_management_user = getenv("RABBITMQ_MANAGEMENT_USER", "guest")
 rabbitmq_management_pass = getenv("RABBITMQ_MANAGEMENT_PASS", "guest")
 rabbitmq_manangement_verify = getenv("RABBITMQ_MANAGEMENT_VERIFY", "false")
 rabbitmq_management_port = getenv("RABBITMQ_MANAGEMENT_PORT", 8002)
 rabbitmq_url = getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+
 default_origins = getenv("DEFAULT_CORS_ORIGINS")
-origins = default_origins.split(",") if default_origins else default_cors_origins  # noqa: E501
+origins = default_origins.split(",") if default_origins else []  # noqa: E501
 print(f"origins {origins}")
 debug(f"origins: {origins}")
 
+# Local admin user account as fallback for WebUI access
 breakglass_username = getenv("BREAKGLASS_USERNAME", "breakglass")
 breakglass_domain = getenv("BREAKGLASS_DOMAIN", "breakglass")
 bg_username_lower = breakglass_username.lower()
 bg_domain_lower = breakglass_domain.lower()
-
-# debug("mongodb_url: %s", mongodb_url)
-# debug("mongodb_database: %s", mongodb_database)
-# debug("redis_url: %s", redis_url)
-# debug("translate_users_username: %s", translate_users_username)
-# debug("translate_users_password: %s", translate_users_password)
-# debug("rabbitmq_management_host: %s", rabbitmq_management_host)
-# debug("rabbitmq_management_user: %s", rabbitmq_management_user)
-# debug("rabbitmq_management_pass: %s", rabbitmq_management_pass)
-# debug("rabbitmq_management_port: %s", rabbitmq_management_port)
-# debug("rabbitmq_url: %s", rabbitmq_url)
-# debug("origins: %s", origins)
-# syslog_address = getenv("SYSLOG_ADDRESS", "127.0.0.1")
-# syslog_facility = getenv("SYSLOG_FACILITY", "local0")
-# syslog_level = getenv("SYSLOG_LEVEL", "DEBUG")
-# syslog_port = getenv("SYSLOG_PORT", 514)
-# syslog_local = getenv("SYSLOG_LOCAL", False)
-# syslog_enabled = getenv("SYSLOG_ENABLED", True)
-# --------------------------------
-
-
-# if (syslog_enabled):
-#     # the default logging format
-#     logging_fmt = "%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"  # noqa: E501
-#     try:
-#         root_logger = getLogger()
-#         root_logger.setLevel(syslog_level)
-#         syslog_handler = SysLogHandler(
-#             address=(syslog_address, int(syslog_port)),
-#             facility=syslog_facility,
-#         )
-#         root_logger.addHandler(syslog_handler)
-#         root_handler = root_logger.handlers[0]
-#         root_handler.setFormatter(Formatter(logging_fmt))
-#     except IndexError:
-#         basicConfig(level=syslog_level, format=logging_fmt)
 
 
 async def not_found(request, exc):
@@ -97,12 +78,8 @@ async def not_found(request, exc):
     return HTMLResponse(content="<h1>404 NOT FOUND</h1>", status_code=exc.status_code)  # noqa: E501
 
 
-exceptions = {
-    # 404: not_found,
-}
-
-# initialize fastapi
-app = FastAPI(exception_handlers=exceptions, docs_url=None, redoc_url=None)
+# Initialize FastAPI
+app = FastAPI(docs_url=None, redoc_url=None)
 app.include_router(auth_api, prefix="/auth")
 app.include_router(api, prefix="/api")
 app.add_middleware(
@@ -165,7 +142,7 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-# initialize rabbitmq management api
+# Initialize RabbitMQ management api
 default = f"http://{rabbitmq_management_host}:{rabbitmq_management_port}"
 debug(f"default rabbitmq management api: {default}")
 rabbitmq_management_url = getenv("RABBITMQ_MANAGEMENT_URL")
@@ -182,7 +159,7 @@ rabbitmq_management_api = ManagementApi(
     verify=rabbitmq_manangement_verify if len(rabbitmq_manangement_verify) > 0 else False,  # noqa: E501
 )
 
-# initialize database connection
+# Initialize MongoDB connection
 motor_client = AsyncIOMotorClient(mongodb_url, serverSelectionTimeoutMS=3000, connectTimeoutMS=3000, socketTimeoutMS=3000)  # noqa: E501
 odm_session = AIOEngine(motor_client=motor_client, database=mongodb_database)
 

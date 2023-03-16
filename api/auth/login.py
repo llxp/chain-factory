@@ -73,6 +73,23 @@ async def login(
 
 
 async def create_tokens(hostname: str, credentials: LoginRequest, server_secret: str, user_information: UserInformation, database: AIOEngine, response: Response):  # noqa: E501
+    """Creates access & refresh token,
+    set them as cookies and return them additionally
+
+    Args:
+        hostname (str): Rest API Hostname
+        credentials (LoginRequest): Login POST body
+            (username, password, scopes)
+        server_secret (str): Server secret used for jwt signage and
+            jwe encryption
+        user_information (UserInformation): Result from authentication
+            API request
+        database (AIOEngine): Database session (odmantic)
+        response (Response): FastAPI Response object
+
+    Returns:
+        Dict: Access token, Refresh token
+    """
     jti = str(uuid4())
     access_token = await create_token(
         hostname,

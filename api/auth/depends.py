@@ -25,6 +25,8 @@ def get_token(request: Request) -> str:
 
 
 class HTTPBearer(HTTPBase):
+    """Customized HTTPBearer class from FastAPI,
+    adjusted to also work with cookies"""
     def __init__(
         self,
         *,
@@ -42,6 +44,19 @@ class HTTPBearer(HTTPBase):
     async def __call__(
         self, request: Request
     ) -> Optional[HTTPAuthorizationCredentials]:
+        """Check if either authorization header or specified
+        cookie is set and return contained token
+
+        Args:
+            request (Request): FastAPI request object
+
+        Raises:
+            HTTPException: Raise exception if no token is found in request
+            HTTPException: Raise exception if token is in an invalid format
+
+        Returns:
+            Optional[HTTPAuthorizationCredentials]: Token / JWT
+        """
         authorization: str = request.headers.get("Authorization")
         if not authorization:
             # print(request.cookies)
@@ -76,6 +91,32 @@ class CheckScope:
         server_secret: str = Depends(get_server_secret),
         hostname: str = Depends(get_hostname)
     ) -> str:
+        """Check authorization token for permissions.
+        If not set use refresh token to generate new JWT.
+
+        Args:
+            request (Request): FastAPI request object
+            response (Response): FastAPI response object
+            database (AIOEngine, optional): Database object.
+                Defaults to Depends(get_odm_session).
+            bearer_token (HTTPAuthorizationCredentials, optional):
+                Authorization token from request. Defaults to
+                Depends(HTTPBearer(cookie_name='Authorization')).
+            refresh_token (HTTPAuthorizationCredentials, optional):
+                Refresh token from request. Defaults to
+                Depends(HTTPBearer(cookie_name='RefreshToken')).
+            server_secret (str, optional): Server secret to sign auth token /
+                encrypt refresh token. Defaults to Depends(get_server_secret).
+            hostname (str, optional): Fqdn of RestAPI. Defaults to
+                Depends(get_hostname).
+
+        Raises:
+            HTTPException: Raises exception if no scopes found in refresh token
+            HTTPException: Raises exception if no token is found in request
+
+        Returns:
+            str: Returns method to decode / verify access token
+        """
         if bearer_token:
             token = bearer_token.credentials
             return self.get_token(request, token, server_secret, hostname)
