@@ -71,3 +71,14 @@ services:
     ports:
       - 8003:8081
   # --------------------------------
+
+  # webui
+  # --------------------------------
+  webui:
+    image: mtr.devops.telekom.de/chain-factory/webui:1.2.0
+    restart: unless-stopped
+    ports:
+      - 8004:8000
+    environment:
+      - API_URL=http://localhost:8005
+      - NODE_ENV=production
