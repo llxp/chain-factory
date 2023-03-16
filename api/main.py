@@ -39,9 +39,9 @@ server_secret = getenv(
 # MongoDB details
 mongodb_url = getenv(
     "MONGODB_URL",
-    "mongodb://root:example@127.0.0.1:27017/test?authSource=admin"
+    "mongodb://root:example@127.0.0.1:27017/db?authSource=admin"
 )
-mongodb_database = getenv("MONGODB_DATABASE", "test")
+mongodb_database = getenv("MONGODB_DATABASE", "db")
 
 # Redis details
 redis_url = getenv("REDIS_URL", "redis://localhost")
