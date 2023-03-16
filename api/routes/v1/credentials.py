@@ -52,6 +52,14 @@ async def create_credentials(
     Encrypt the credentials and
     return the password to retrieve the credentials.
     Return an error if the namespace does not exist
+
+    Raises:
+        HTTPException: Raises exception if credentials could not be created
+        HTTPException: Raises exception if namespace does not exist or user
+            has no access
+
+    Returns:
+        ManagementCredentials(Object)
     """
     if namespace_obj:
         info(f"namespace {namespace} found")

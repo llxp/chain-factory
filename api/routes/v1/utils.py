@@ -164,7 +164,7 @@ async def node_active(
             if diff.total_seconds() <= (heartbeat_sleep_time * 30):
                 info("Node is active")
                 return True
-    info("Node is not active")
+    info("Node is not active")  # TODO: Send Email if Node is not active
     return False
 
 

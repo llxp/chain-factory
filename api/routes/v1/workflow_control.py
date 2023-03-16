@@ -24,6 +24,25 @@ async def stop_workflow(
     redis_client: StrictRedis = Depends(get_redis_client),
     username: str = Depends(get_username),
 ):
+    """API Endpoint to stop a running workflow
+
+    Args:
+        namespace (str): Namespace
+        workflow_id (str): ID of the selected workflow
+        database (AIOEngine, optional): Database Object.
+            Defaults to Depends(get_odm_session).
+        redis_client (StrictRedis, optional): Redis Client.
+            Defaults to Depends(get_redis_client).
+        username (str, optional): Username. Defaults to Depends(get_username).
+
+    Raises:
+        HTTPException: Raises exception if workflow already stopped
+        HTTPException: Raises exception if namespace does not exists
+            or user has no access.
+
+    Returns:
+        Str: Workflow stopped
+    """
     namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa: E501
     if namespace_db is not None:
         workflow_status_collection = namespace_db.get_collection("workflow_status")  # noqa: E501
@@ -61,6 +80,25 @@ async def abort_workflow(
     redis_client: StrictRedis = Depends(get_redis_client),
     username: str = Depends(get_username),
 ):
+    """API Endpoint to abort a running workflow
+
+    Args:
+        namespace (str): Namespace
+        workflow_id (str): ID of the selected workflow
+        database (AIOEngine, optional): Database Object.
+            Defaults to Depends(get_odm_session).
+        redis_client (StrictRedis, optional): Redis Client.
+            Defaults to Depends(get_redis_client).
+        username (str, optional): Username. Defaults to Depends(get_username).
+
+    Raises:
+        HTTPException: Raises exception if workflow already stopped
+        HTTPException: Raises exception if namespace does not exists
+            or user has no access.
+
+    Returns:
+        Str: Workflow aborted
+    """
     namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa: E501
     if namespace_db is not None:
         workflow_status_collection = namespace_db.get_collection("workflow_status")  # noqa: E501
@@ -101,6 +139,30 @@ async def restart_workflow(
     rabbitmq_url: str = Depends(get_rabbitmq_url),
     namespace_obj: Namespace = Depends(get_allowed_namespace)
 ):
+    """API endpoint to abort a workflow and start it again
+
+    Args:
+        namespace (str): Namespace
+        workflow_id (str): Workflow ID
+        database (AIOEngine, optional): Database Object.
+            Defaults to Depends(get_odm_session).
+        redis_client (StrictRedis, optional): Redis Client.
+            Defaults to Depends(get_redis_client).
+        username (str, optional): Username. Defaults to Depends(get_username).
+        rabbitmq_url (str, optional): RabbitMQ Url.
+            Defaults to Depends(get_rabbitmq_url).
+        namespace_obj (Namespace, optional): Namespace Object to check
+        if user has access to it. Defaults to Depends(get_allowed_namespace).
+
+    Raises:
+        HTTPException: Raises exception if workflow could not be restarted
+        HTTPException: Raises exception if workflow already stopped
+        HTTPException: Raises exception if namespace does not exist
+            or user has no access.
+
+    Returns:
+        Str: Workflow restarted
+    """
     namespace_db = await Namespace.get_namespace_db(database, namespace, username)  # noqa: E501
     if namespace_db is not None:
         workflow_status_collection = namespace_db.get_collection("workflow_status")  # noqa: E501

@@ -120,12 +120,19 @@ async def delete_node(
     namespaces: List[Namespace] = Depends(get_allowed_namespaces),
     username: str = Depends(get_username),
 ):
-    """
-    Delete a node from the database.
+    """Delete a node from the database.
     If there are multiple nodes with the same name,
     the first found node will be deleted.
     If there are no nodes with the name, this will fail.
-    """
+
+    Raises:
+        HTTPException: Raises exception if multiple nodes were found
+        HTTPException: Raises exception if node was not found
+        HTTPException: Raises exception if namespace not found or access denied
+
+    Returns:
+        Str: Node deleted
+    """    
     namespace_db = await Namespace.get_namespace_db(database, namespace, username, False)  # noqa: E501
     if namespace_db is not None:
         node_tasks_collection = await namespace_db.get_collection("node_tasks")
