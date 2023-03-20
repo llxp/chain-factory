@@ -413,13 +413,7 @@ async def workflow_metrics(
     namespace_dbs = await Namespace.get_filtered_namespace_dbs(database, username, namespace)  # noqa: E501
     collections = {ns: db.get_collection("workflow") for ns, db in namespace_dbs.items()}  # noqa: E501
 
-    # def match_stage():
-    #     stage = match({})
-    #     if not default_namespace(namespace):
-    #         stage['$match']['namespace'] = namespace
-    #     return stage
     pipeline = [
-        # match_stage(),
         lookup_workflow_status('workflow_id', 'workflow_status'),
         project({
             'status': {
