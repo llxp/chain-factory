@@ -70,18 +70,34 @@ class InterruptableThread(Thread):
         Thread.__init__(self)
 
     def set_async_exc(self, exc, *args):
+        """
+        Set the thread to exit with the given exception,
+        basically injecting an exception into the thread
+        """
         debug(f"Setting thread {self.ident} to {exc} with args: {args}")
         return set_async_exc(self.ident, exc, *args)
 
     def interrupt(self):
+        """
+        Interrupt the thread with a KeyboardInterrupt exception,
+        which is the same as pressing Ctrl+C or sending a SIGINT
+        """
         self.set_async_exc(KeyboardInterrupt)
 
     def exit(self):
+        """
+        Exit the thread with a SystemExit exception,
+        which is the same as calling sys.exit()
+        """
         print("Exiting thread")
         debug(f"Exiting thread {self.ident}")
         self.set_async_exc(SystemExit)
 
     def abort(self, *args):
+        """
+        Abort the thread with a ThreadAbortException exception,
+        which is the same as sending a SIGTERM
+        """
         print("Aborting thread")
         print_stack()
         debug(f"Aborting thread {self.ident} with args: {args}")

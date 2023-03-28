@@ -11,7 +11,7 @@ pages:
     classes:
       - ChainFactory
 
-  # credentials
+  # Framework::Credentials
   # ----------------------------------------------------------------
   - page: "private/credentials/credentials_retriever.md"
     source: "framework/src/chain_factory/credentials_retriever.py"
@@ -33,17 +33,178 @@ pages:
       - ManagementCredentialsCollection
   # ----------------------------------------------------------------
 
-  # TaskQueueHandlers
+  # Framework::TaskQueueHandlers
   # ----------------------------------------------------------------
-  - page: "private/task_queue_handlers/task_queue_handlers.md"
+  - page: "private/task_queue_handlers.md"
     source: "framework/src/chain_factory/task_queue_handlers.py"
     classes:
       - TaskQueueHandlers
-  
-  - page: "private/task_queue_handlers/"
   # ----------------------------------------------------------------
 
-  # creates an index page based on everything from target source
-  # - page: "api/layers/index.md"
-  #   source: "tensorx/layers.py"
-  #   index: True
+  # Framework::ClientPool
+  # ----------------------------------------------------------------
+  - page: "private/client_pool.md"
+    source: "framework/src/chain_factory/client_pool.py"
+    classes:
+      - ClientPool
+  # ----------------------------------------------------------------
+
+  # Framework::NodeRegistration
+  # ----------------------------------------------------------------
+  - page: "private/node_registration.md"
+    source: "framework/src/chain_factory/node_registration.py"
+    classes:
+      - NodeRegistration
+  # ----------------------------------------------------------------
+
+  # Framework::ClusterHeartbeat
+  # ----------------------------------------------------------------
+  - page: "private/cluster_heartbeat.md"
+    source: "framework/src/chain_factory/cluster_heartbeat.py"
+    classes:
+      - ClusterHeartbeat
+  # ----------------------------------------------------------------
+
+  # Framework::TaskRunner
+  # ----------------------------------------------------------------
+  - page: "private/task_runner/task_runner.md"
+    source: "framework/src/chain_factory/task_runner.py"
+    classes:
+      - TaskRunner
+
+  - page: "private/task_runner/task_thread.md"
+    source: "framework/src/chain_factory/task_thread.py"
+    classes:
+      - TaskThread
+
+  - page: "private/task_runner/task_control_thread.md"
+    source: "framework/src/chain_factory/task_control_thread.py"
+    classes:
+      - TaskControlThread
+
+  - page: "private/task_runner/control_thread.md"
+    source: "framework/src/chain_factory/control_thread.py"
+    classes:
+      - ControlThread
+  # ----------------------------------------------------------------
+
+  # Framework::TaskHandler
+  # ----------------------------------------------------------------
+  - page: "private/task_handler/task_handler.md"
+    source: "framework/src/chain_factory/task_handler.py"
+    classes:
+      - TaskHandler
+
+  - page: "private/task_handler/queue_handler.md"
+    source: "framework/src/chain_factory/queue_handler.py"
+    classes:
+      - QueueHandler
+
+  - page: "private/task_handler/argument_excluder.md"
+    source: "framework/src/chain_factory/argument_excluder.py"
+    classes:
+      - ArgumentExcluder
+
+  - page: "private/task_handler/parse_catcher.md"
+    source: "framework/src/chain_factory/decorators/parse_catcher.py"
+    functions:
+      - parse_catcher
+
+  - page: "private/task_handler/list_handler.md"
+    source: "framework/src/chain_factory/wrapper/list_handler.py"
+    classes:
+      - ListHandler
+  # ----------------------------------------------------------------
+
+  # API
+  # ----------------------------------------------------------------
+  - page: "public/api/credentials.md"
+    source: "api/routes/v1/credentials.py"
+    functions:
+      - create_credentials
+      - get_credentials
+  
+  - page: "public/api/namespace.md"
+    source: "api/routes/v1/namespace.py"
+    functions:
+      - namespaces
+      - disabled_namespaces
+      - create_namespace
+      - allow_user_to_namespace
+      - remove_user_from_namespace
+      - disable_namespace
+      - delete_namespace
+      - enable_namespace
+      - rename_namespace
+    
+  - page: "public/api/node.md"
+    source: "api/routes/v1/node.py"
+    functions:
+      - stop_node
+      - node_metrics
+      - delete_node
+  
+  - page: "public/api/task_control.md"
+    source: "api/routes/v1/task_control.py"
+    functions:
+      - new_task
+  
+  - page: "public/api/task.md"
+    source: "api/routes/v1/task.py"
+    functions:
+      - active_tasks
+      - tasks
+      - task_logs
+  
+  - page: "public/api/workflow_control.md"
+    source: "api/routes/v1/workflow_control.py"
+    functions:
+      - stop_workflow
+      - abort_workflow
+      - restart_workflow
+  
+  - page: "public/api/workflow.md"
+    source: "api/routes/v1/workflow.py"
+    functions:
+      - workflows
+      - workflow_tasks
+      - workflow_status
+      - workflow_metrics
+      - delete_workflow_logs
+      - workflow_logs
+  # ----------------------------------------------------------------
+
+  # API Auth
+  # ----------------------------------------------------------------
+  - page: "public/api/auth/login.md"
+    source: "api/auth/login.py"
+    functions:
+      - login
+      - create_tokens
+      - get_user_information
+      - perform_user_information_request
+      - get_scopes
+      - create_token
+      - create_refresh_token
+    
+  - page: "public/api/auth/logout.md"
+    source: "api/auth/logout.py"
+    functions:
+      - logout
+  
+  - page: "public/api/auth/refresh_token.md"
+    source: "api/auth/refresh_token.py"
+    functions:
+      - access_token_from_refresh_token
+      - create_token
+      - find_refresh_token
+  
+  - page: "public/api/auth/user_profile.md"
+    source: "api/auth/user_profile.py"
+    functions:
+      - get_scopes_by_config
+      - perform_user_information_request_impersonated
+      - get_user_information_impersonated
+      - get_user_information_by_config
+      - user_profile
+  # ----------------------------------------------------------------

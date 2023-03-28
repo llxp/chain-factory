@@ -7,7 +7,6 @@ from logging import info
 from logging import debug
 from logging import warning
 from logging import error
-from threading import Lock
 from odmantic import AIOEngine
 from inspect import signature
 from asyncio import AbstractEventLoop
@@ -32,7 +31,6 @@ from .common.settings import sticky_tasks
 from .common.settings import wait_time
 from .common.settings import max_task_age_wait_queue
 from .common.settings import incoming_block_list_redis_key
-from .common.settings import worker_count
 
 # data types
 from .models.mongodb_models import ArgumentType
@@ -57,7 +55,6 @@ class TaskHandler(QueueHandler):
         node_name: str
     ):
         QueueHandler.__init__(self)
-        self.ack_lock = Lock()
         self.registered_tasks: Dict[str, TaskRunner] = {}
         self.error_handlers: ErrorCallbackMappingType = {}
         self.mongodb_client: Union[AIOEngine, None] = None
@@ -76,31 +73,63 @@ class TaskHandler(QueueHandler):
         loop: AbstractEventLoop,
         rabbitmq_url: str,
     ):
+        """
+        Initialize the task handler
+        there is this extra init function, because the __init__ function
+        does not support async functions
+        """
+        # the loop is needed for the rabbitmq connection,
+        # the mongodb connection and to run the task threads
         self.loop = loop
         self.mongodb_client = mongodb_client
-        await QueueHandler.init(self, url=rabbitmq_url, queue_name=queue_name, loop=loop)  # noqa: E501
+
+        # setting the queue names
         self.wait_queue_name = wait_queue_name
         self.blocked_queue_name = blocked_queue_name
 
+        # Initialize the queue handler
+        await QueueHandler.init(
+            self, url=rabbitmq_url, queue_name=queue_name, loop=loop)
+
+        # Initialize the amqp publishers,
+        # to send messages to the wait and blocked queue
         await self._init_amqp_publishers(rabbitmq_url)
-        self.block_list = ListHandler(list_name=incoming_block_list_redis_key, redis_client=redis_client)  # noqa: E501
+
+        # Initialize the block list,
+        # which can be specified in redis to block
+        # either specific tasks on a node or
+        # completely the node from receiving tasks
+        self.block_list = ListHandler(
+            list_name=incoming_block_list_redis_key,
+            redis_client=redis_client
+        )
         await self.block_list.init()
 
-    def stop(self):
-        pass
-
     def update_task_timeout(self):
+        """
+        Update the task timeout value for all registered tasks
+        """
         for _, runner in self.registered_tasks.items():
             runner.update_task_timeout(self.task_timeout)
 
     def update_error_handlers(self):
+        """
+        Update the error handlers for all registered tasks
+        """
         for _, runner in self.registered_tasks.items():
             runner.update_error_handlers(self.error_handlers)
 
     async def _init_amqp_publishers(self, url: str):
+        """
+        Initialize the amqp publishers,
+        to send messages to the wait and blocked queue
+        """
+        # Initialize the amqp publisher,
+        # to send messages to the wait queue
         self.amqp_wait: RabbitMQ = getPublisher(
             rabbitmq_url=url,
             queue_name="dlx." + self.wait_queue_name,
+            loop=self.loop,
             queue_options={
                 # publish dead lettered messages to the task queue again
                 "x-dead-letter-exchange": self.queue_name,
@@ -110,9 +139,12 @@ class TaskHandler(QueueHandler):
             }
         )
         await self.amqp_wait.init()
+        # Initialize the amqp publisher,
+        # to send messages to the blocked queue
         self.amqp_blocked: RabbitMQ = getPublisher(
             rabbitmq_url=url,
             queue_name="dlx." + self.blocked_queue_name,
+            loop=self.loop,
             queue_options={
                 # publish dead lettered messages to the task queue again
                 "x-dead-letter-exchange": self.queue_name,
@@ -133,8 +165,11 @@ class TaskHandler(QueueHandler):
             # so rejecting every incoming task
             warning("could not retrieve blocklist from redis, rejecting all tasks")  # noqa: E501
             await self.nack(message)
+            # if the blocklist couldn't be retrieved from redis,
+            # wait for 5 seconds and try again
             sleep(wait_time)
             return True
+        # check if the task is in the blocklist
         for item in blocklist.list_items:
             node_name = item.name
             task_name = item.content
@@ -143,6 +178,7 @@ class TaskHandler(QueueHandler):
                 task.update_time()
                 # reschedule task, which is in incoming block list
                 await self.send_to_queue(task, self.amqp_blocked)
+                # and acknowledge the message to remove it from the queue
                 await self.ack(message)
                 return True
         return False
@@ -152,6 +188,7 @@ class TaskHandler(QueueHandler):
         Report the workflow id to the mongodb database
         """
         if self.mongodb_client is not None:
+            # save the workflow to the database
             await self.mongodb_client.save(Workflow(
                 workflow_id=workflow_id,
                 node_name=self.node_name,
@@ -163,15 +200,22 @@ class TaskHandler(QueueHandler):
         """
         Report the assignment from workflow_id to task_id to the database
         """
+        # the argument excluder is used to filter out specific arguments,
+        # which should not be saved in the database (e.g. passwords)
+        # can be specified using the hidden argument "exclude"
         arguments_excluder = ArgumentExcluder(task.arguments)
+        # exclude the arguments
         arguments_excluder.exclude()
+        # override the arguments with the filtered arguments
         task.arguments = arguments_excluder.arguments
         if self.mongodb_client is not None:
+            # save the task workflow association
             await self.mongodb_client.save(TaskWorkflowAssociation(
                 workflow_id=task.workflow_id,
                 task=task,
                 node_name=self.node_name
             ))
+        # restore the arguments
         if arguments_excluder.arguments_copy:
             task.arguments = arguments_excluder.arguments_copy
 
@@ -181,14 +225,14 @@ class TaskHandler(QueueHandler):
         """
         task_id: str = task.task_id or ""
         task_name = task.name
-        # buffer to redirect stdout/stderr to the database
         if self.mongodb_client is None:
             raise Exception("mongodb client is not initialized")
+        # buffer to redirect stdout/stderr to the database
         log_buffer = BytesIOWrapper(task_id, task.workflow_id, self.mongodb_client, loop=self.loop)  # noqa: E501
         self._current_task = task
         self._can_be_marked_as_stopped = True
         info(f"running task '{task_name}' with task_id '{task_id}'")
-        # run the task
+        # run the task, the loop has already been set in the constructor of the TaskRunner  # noqa: E501
         result = await self.registered_tasks[task_name].run(workflow, task, log_buffer)  # noqa: E501
         info(f"task '{task_name}' with task_id {task_id} finished")
         return result
@@ -222,6 +266,8 @@ class TaskHandler(QueueHandler):
         new_task = self._new_task_from_result(task_result, new_arguments)
         if new_task is None:
             raise Exception("invalid task result")
+        # set the parent task to connect the tasks in the database
+        # to the workflow
         new_task.set_parent_task(old_task)
         if sticky_tasks:  # settings.sticky_tasks
             # if sticky_tasks option is set,
@@ -243,16 +289,23 @@ class TaskHandler(QueueHandler):
         task.arguments = new_arguments
         # send task to wait queue
         await self.amqp_wait.send(task.json())
-        # await self.rabbitmq_wait.send(task.json())
         return None
 
     async def _save_first_task_as_workflow(self, task: Task):
+        """
+        Report the first task in the workflow as the workflow to the database
+        """
+        # if the task has no parent task it is the first task in the workflow
         if not task.has_parent_task():
             # report workflow to database,
             # if it is the first task in the workflow task chain
             await self._save_workflow(task.workflow_id, task.tags or [])
 
     async def _save_task_result(self, task_id: str, result: str):
+        """
+        Report the result of the task to the database
+        """
+        # create a task status/result object
         task_status = TaskStatus(
             task_id=task_id,
             namespace=self.namespace,
@@ -261,26 +314,41 @@ class TaskHandler(QueueHandler):
         )
         if self.mongodb_client is None:
             raise Exception("mongodb client is not initialized")
+        # save the task status/result object to the database
         await self.mongodb_client.save(task_status)
 
     async def _mark_workflow_as_stopped(self, workflow_id: str, status: str):
+        """
+        Report the workflow as stopped to the database
+        """
         if self.mongodb_client is None:
             raise Exception("mongodb client is not initialized")
+        # check, if the workflow is already marked as stopped
         if not await WorkflowStatus.get(self.mongodb_client, workflow_id, self.namespace):  # noqa: E501
+            # if the workflow is not marked as stopped, mark it as stopped
             workflow_status = WorkflowStatus(
                 workflow_id=workflow_id,
                 namespace=self.namespace,
                 status=status,
                 created_date=datetime.utcnow(),
             )
+            # save the workflow status to the database
             await self.mongodb_client.save(workflow_status)
 
     async def _handle_workflow_stopped(self, result: str, task: Task, can_be_marked_as_stopped: bool):  # noqa: E501
+        """
+        Handle the result of a task, if the workflow is stopped
+        """
+        # save the task result to the database
         await self._save_task_result(task.task_id, result)
+        # if theworkflow is stopped, and no .s() call was made
+        # mark the workflow as stopped
         if can_be_marked_as_stopped:
-            # None means, the workflow chain stops
+            # None normally means, the workflow chain stops
+            # exception: an .s() call was made,
+            # then this stage is skipped and not the last
             await self._mark_workflow_as_stopped(task.workflow_id, result)
-        return None  # do nothing
+        return None  # do nothing, if the workflow is not yet stopped
 
     async def _handle_repeat_task(self, task: Task, arguments: ArgumentType, result: str):  # noqa: E501
         await self._save_task_result(task.task_id, result)
@@ -295,20 +363,42 @@ class TaskHandler(QueueHandler):
         message: Message,
         task: Task,
     ) -> Union[Task, None]:
+        """
+        Handle the result of a task, if the task is finished running
+        """
+        # ack the task in rabbitmq, to remove it from the queue
         await self.ack(message)
+
+        # check, if the task is False, which means,
+        # the task failed and should be repeated
         if task_result is False:
             return await self._handle_repeat_task(task, arguments, "False")
+
+        # check, if the task result is a TimeoutError,
+        # which means, there is configured a maximum time a task can run
         elif task_result is TimeoutError:
             if self.registered_tasks[task.name].task_repeat_on_timeout:
                 return await self._handle_repeat_task(task, arguments, "Timeout")  # noqa: E501
-            return await self._handle_workflow_stopped(
-                "Timeout", task, self._can_be_marked_as_stopped)
+            return await self._handle_workflow_stopped("Timeout", task, self._can_be_marked_as_stopped)  # noqa: E501
+
+        # check, if the task result is a ThreadAbortException,
+        # which means, the task was aborted using a redis broadcast
+        # "abort" command
         elif task_result is ThreadAbortException:
             debug("ThreadAbortException")
             return await self._save_task_result(task.task_id, "Aborted")
+
+        # check, if the task result is a KeyboardInterrupt,
+        # which means, the task was aborted using a redis broadcast
+        # "stop" command
         elif task_result is KeyboardInterrupt:
             return await self._save_task_result(task.task_id, "Stopped")
-        else:  # task_result now can only be Task/None/Exception
+
+        # task_result now can only be Task/None/Exception
+        else:
+            # None means,
+            # there has been no error and no new task should be scheduled
+            # => mark the workflow as stopped
             if task_result is None:
                 return await self._handle_workflow_stopped("None", task, self._can_be_marked_as_stopped)  # noqa: E501
             # Exception means an exception occured during the task run
@@ -319,10 +409,23 @@ class TaskHandler(QueueHandler):
             elif task_result is Task:
                 await self._save_task_result(task.task_id, "Task")
                 return self._return_new_task(task, arguments, task_result)
+
+            # if the task result is not
+            # None,
+            # Task,
+            # Exception,
+            # ThreadAbortException,
+            # KeyboardInterrupt,
+            # TimeoutError
+            # or False
+            # raise an exception
             else:
                 raise Exception(f"Unknown task result, {task_result}")
 
     async def _prepare_task_in_database(self, task: Task):
+        """
+        Generates a task id and saves the association to it in the database
+        """
         await self._save_first_task_as_workflow(task)
         # associate task id with workflow id in database
         await self._save_task_workflow_association(task)
@@ -331,11 +434,17 @@ class TaskHandler(QueueHandler):
         """
         Generates a task id and saves the association to it in the database
         """
+        # generate a new task id
         task.generate_task_id()
+        # save the task to the database
         await self._prepare_task_in_database(task)
+        # return the prepared task
         return task
 
     async def _get_workflow(self, workflow_id: str) -> Optional[Workflow]:
+        """
+        Get the workflow from the database
+        """
         if self.mongodb_client is None:
             raise Exception("mongodb client is not initialized")
         workflow = await self.mongodb_client.find_one(
@@ -380,6 +489,7 @@ class TaskHandler(QueueHandler):
         sends the task to the delayed queue with an ttl of planned_date - now
         """
         # TODO: not implemented yet
+        # planned tasks are not implemented yet
         error("planning tasks is not implemented yet")
         return None
 
@@ -392,32 +502,47 @@ class TaskHandler(QueueHandler):
         Runs a precheck, to see if the task already has a valid workflow id
         if not, it will generate a unique workflow id
         and return it to the queue
+        The return here will be handled by the on_task method,
+        which in turn will return it to the QueueHandler
         """
         debug(f"handle task {task}")
+        if self.mongodb_client is None:
+            raise Exception("mongodb client is None")
+
         debug("workflow_precheck")
+        # check, if the task is the first task of a workflow
         if task.workflow_precheck():
             debug("prepare workflow")
             return await self._prepare_workflow(task, message)
+
         debug("prepare task")
         task = await self._prepare_task(task)
-        if self.mongodb_client is None:
-            raise Exception("mongodb client is None")
         debug("is_stopped")
         if await task.is_stopped(self.namespace, self.mongodb_client):
             debug("task is stopped. handle_stopped")
             return await self._handle_stopped(task, message)
+
         debug("is_planned_task")
         if task.is_planned_task():
             debug("task is planned. handle_planned_task")
             return await self._handle_planned_task(task, message)
+
         debug("handle_run_task")
         return await self._handle_run_task(task, message)
 
     async def _prepare_workflow(self, task: Task, message: Message):
-        # workflow id does not yet exist
+        """
+        Removes the hollow task from the queue
+        and returns a new task with a new workflow id
+        and returns it to the queue
+        """
+        # remove the task from the queue
         await self.ack(message)
-        # so generate a new workflow id and attach it to the task
+        # generate a new workflow id and attach it to the task
         task.generate_workflow_id()
+        # return means to the rabbitmq wrapper,
+        # the task will be pushed to the queue
+        # the return will directly be passed back to the RabbitMQ wrapper
         return task
 
     async def _handle_stopped(self, task: Task, message: Message):
@@ -544,6 +669,9 @@ class TaskHandler(QueueHandler):
         return schedule_task
 
     def task_set_redis_client(self, redis_client: RedisClient):
+        """
+        Set the redis client for all registered tasks
+        """
         for _, runner in self.registered_tasks.items():
             runner.update_namespace(self.namespace)
             runner.set_redis_client(redis_client)

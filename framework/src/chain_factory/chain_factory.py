@@ -4,16 +4,14 @@ This File has the main class for the chain-factory framework
 
 
 # from typing import Dict
-from asyncio import AbstractEventLoop
+from asyncio import AbstractEventLoop, CancelledError, get_event_loop, sleep
 from asyncio import new_event_loop
 from logging import debug, error, exception, warning
 from typing import Optional
 from typing import Type
 
 # direct imports
-# from .task_starter import TaskStarter
 from .task_queue_handlers import TaskQueueHandlers
-# from .credentials_retriever import CredentialsRetriever
 
 # data types
 from .models.mongodb_models import ErrorCallbackType
@@ -61,7 +59,6 @@ class ChainFactory():
         self.namespace = namespace
         self.namespace_key = namespace_key
         # task starter
-        # self._task_starter: Dict[str, TaskStarter] = {}
         self.task_queue_handlers: TaskQueueHandlers = TaskQueueHandlers(
             namespace=self.namespace,
             namespace_key=self.namespace_key,
@@ -72,48 +69,6 @@ class ChainFactory():
             worker_count=self.worker_count,
             task_timeout=self.task_timeout,
         )
-
-    # async def start_new_task(
-    #     self,
-    #     task_name: str,
-    #     arguments: dict,
-    #     namespace: str = "",
-    #     namespace_key: str = ""
-    # ):
-    #     """
-    #     starts a new task by name
-    #     (can be e.g. used
-    #     to start a task of a different namespace)
-    #     """
-    #     if namespace is None:
-    #         namespace = self.namespace
-    #     if namespace_key is None:
-    #         namespace_key = self.namespace_key
-    #     credentials: CredentialsRetriever = \
-    #         await self.task_queue_handlers._credentials_pool.get_credentials(
-    #             namespace, namespace_key)
-    #     rabbitmq_url = credentials.rabbitmq
-    #     try:
-    #         await self._task_starter[namespace].start_task(
-    #             task_name, arguments)
-    #     except KeyError:
-    #         self._task_starter[namespace] = TaskStarter(
-    #             namespace=namespace,
-    #             rabbitmq_url=rabbitmq_url,
-    #         )
-    #         await self._task_starter[namespace].start_task(task_name, arguments)  # noqa: E501
-
-    # async def wait_for_task(
-    #     self,
-    #     namespace: str,
-    #     task_name: str,
-    #     arguments: dict
-    # ):
-    #     """
-    #     waits for a task to complete
-    #     TODO: Needs to be reimplemented, as the current logic is not working, so the method is commented out  # noqa: E501
-    #     """
-    #     await self.task_queue_handlers.wait_for_task(namespace, task_name, arguments)  # noqa: E501
 
     def task(self, name: str = "", repeat_on_timeout: bool = default_task_repeat_on_timeout):  # noqa: E501
         """
@@ -166,30 +121,47 @@ class ChainFactory():
             return func
         return wrapper
 
+    async def shutdown(self):
+        """
+        Shuts down the framework
+        """
+        print("Shutting down the framework")
+        await self.task_queue_handlers.stop_node()
+
     def add_error_handler(self, exc_type: Type[Exception], func: ErrorCallbackType):  # noqa: E501
         """
         Adds an error handler to the framework
         """
         self.task_queue_handlers.add_error_handler(exc_type, func)  # noqa: E501
 
-    async def listen(self, loop: AbstractEventLoop):
+    async def listen(self, loop: Optional[AbstractEventLoop] = None):
         """
         Initialises the queue and starts listening
 
         - Will be invoked by the `run` method
         """
+        if loop is None:
+            loop = get_event_loop()
+        self._update_task_queue_handlers(loop)
+        await self.task_queue_handlers.listen()
         try:
-            self._update_task_queue_handlers(loop)
-            await self.task_queue_handlers.listen()
-        except KeyboardInterrupt:
+            while True:
+                await sleep(1)
+        except (KeyboardInterrupt, CancelledError):
             warning("Stopping the task queue")
             await self.task_queue_handlers.stop_node()
+            print("Stopped the task queue")
+            loop.stop()
             loop.close()
+            exit(0)
         except Exception as e:
             error("Error in task queue: ")
             exception(e)
             await self.task_queue_handlers.stop_node()
+            print("Stopped the task queue")
             loop.stop()
+            loop.close()
+            exit(1)
 
     def _update_task_queue_handlers(self, loop: AbstractEventLoop):
         """
@@ -202,7 +174,6 @@ class ChainFactory():
         self.task_queue_handlers.node_name = self.node_name
         self.task_queue_handlers.task_timeout = self.task_timeout
         self.task_queue_handlers.namespace_key = self.namespace_key
-        self.task_queue_handlers.node_name = self.node_name
 
     def run(self, loop: Optional[AbstractEventLoop] = None):
         """
@@ -217,12 +188,12 @@ class ChainFactory():
             loop = new_event_loop()
             loop_provided = False
         try:
-            loop.create_task(self.listen(loop))
+            loop.run_until_complete(self.listen(loop))
             if not loop_provided:
                 debug("Starting event loop")
                 loop.run_forever()
-                # loop.run_until_complete(self.listen(loop))
         except KeyboardInterrupt:
             loop.run_until_complete(self.task_queue_handlers.stop_node())
         finally:
             loop.run_until_complete(self.task_queue_handlers.stop_node())
+        loop.close()

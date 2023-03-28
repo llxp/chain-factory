@@ -22,6 +22,10 @@ from .models.mongodb_models import Task
 
 
 class QueueHandler:
+    """
+    Base Class for the TaskQueue,
+    handles the rabbitmq task queue dispatch logic
+    """
     def __init__(self):
         self.rabbitmq: Union[RabbitMQ, None] = None
 
@@ -38,6 +42,7 @@ class QueueHandler:
 
     async def close(self):
         if self.rabbitmq:
+            print("Closing queue handler")
             await self.rabbitmq.close()
 
     async def _connect(self, url: str, loop: AbstractEventLoop):

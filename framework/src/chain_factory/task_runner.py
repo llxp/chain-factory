@@ -1,3 +1,4 @@
+from asyncio import AbstractEventLoop, Future, get_event_loop, Task as AsyncTask, set_event_loop, wait_for
 from typing import Dict, Optional
 from json import dumps
 from logging import error
@@ -7,7 +8,7 @@ from logging import exception
 from logging import warning
 from traceback import print_exc
 from sys import stdout
-from time import sleep
+from asyncio import sleep
 from time import time
 from io import BytesIO
 from threading import Lock
@@ -73,7 +74,8 @@ class TaskRunner():
         self,
         workflow: Optional[Workflow],
         task: Task,
-        buffer: BytesIO
+        buffer: BytesIO,
+        loop: Optional[AbstractEventLoop] = get_event_loop()
     ) -> TaskRunnerReturnType:
         workflow_id = task.workflow_id
         arguments = task.arguments
@@ -92,11 +94,17 @@ class TaskRunner():
             # start redis subscribe watcher
             try:
                 task_control_thread = TaskControlThread(workflow_id, self._task_threads[workflow_id], self._redis_client, self._namespace)  # noqa: E501
-                task_control_thread.start()
-                self._control_task_thread(workflow_id)
+                if loop:
+                    print("starting task control thread")
+                    set_event_loop(loop)
+                    async_task = loop.create_task(task_control_thread.run_async(loop))  # noqa: E501
+                    await self._control_task_thread(workflow_id)
+                    await async_task
             except ThreadAbortException:
                 debug("task control thread aborted")
                 pass
+
+            # await self._control_task_thread(workflow_id, None)
 
             if self._task_threads[workflow_id]._status == 2:
                 # wait for task thread to normally exit
@@ -121,7 +129,7 @@ class TaskRunner():
     def _task_finished(self, workflow_id: str):
         return self._task_threads[workflow_id]._status in [2, 3, 4, 5]
 
-    def _control_task_thread(self, workflow_id: str):
+    async def _control_task_thread(self, workflow_id: str):  # noqa: E501
         """
         Subscribe to a redis key and listen for control messages
         if there is a 'stop' control message, the thread will be aborted
@@ -141,7 +149,11 @@ class TaskRunner():
             # check, if exited, stopped or aborted
             if self._task_finished(workflow_id):
                 break
-            sleep(0.001)
+            await sleep(0.001)
+
+        # cancel the async task
+        # if async_task:
+        #     async_task.cancel()
 
     @staticmethod
     def _parse_task_output(

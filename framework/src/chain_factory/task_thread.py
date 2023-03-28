@@ -3,14 +3,12 @@ from io import BytesIO
 from typing import Callable, Optional, Union
 from stdio_proxy import redirect_stdout
 from stdio_proxy import redirect_stderr
-# from asyncio import run as run_asyncio
 from asyncio import new_event_loop, set_event_loop
 from logging import Handler, debug
 from logging import exception
 from logging import getLogger
 from traceback import print_exc
 from sys import stdout
-# from pebble import ProcessPool
 
 # data types
 from .models.mongodb_models import ErrorCallbackMappingType, ErrorContext
@@ -41,8 +39,6 @@ class TaskThread(InterruptableThread):
         error_handlers: ErrorCallbackMappingType,
         workflow: Optional[Workflow],
         task: Task,
-        # loop: AbstractEventLoop,
-        # process_pool: ProcessPool
     ):
         InterruptableThread.__init__(self)
         self._name = name
@@ -52,9 +48,7 @@ class TaskThread(InterruptableThread):
         self.result: TaskThreadReturnType = None
         self.workflow = workflow
         self.task = task
-        # self.loop = loop
         self.async_task = None
-        # self.process_pool = process_pool
         self.future = None
         # current task status
         # 0 means not run
@@ -88,9 +82,7 @@ class TaskThread(InterruptableThread):
                     self._status = 1
                     root_logger.addHandler(self._log_handler)
                     self.result = new_loop.run_until_complete(self._callback(**self._arguments))  # noqa: E501
-                    # self.async_task = self.loop.create_task(self._callback(**self._arguments))  # noqa: E501
-                    # self.result = self.loop.run_until_complete(self.async_task)  # noqa: E501
-                    # self.result = run_asyncio(self._callback(**self._arguments))  # noqa: E501
+                    print("result", self.result)
                     root_logger.removeHandler(self._log_handler)
                     self._status = 2
                 # catch ThreadAbortException,

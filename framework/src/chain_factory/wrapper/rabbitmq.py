@@ -1,4 +1,4 @@
-from asyncio import AbstractEventLoop
+from asyncio import AbstractEventLoop, get_event_loop
 # from asyncio import get_event_loop
 from asyncio import new_event_loop
 from asyncio import ensure_future
@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from logging import debug
 from logging import error
 from logging import info
+import threading
 from traceback import print_exc
 from sys import stdout
 from typing import Awaitable
@@ -112,13 +113,14 @@ class RabbitMQ:
         Connects to an rabbitmq server
         """
         debug(f"opening new RabbitMQ to host {url}")
-        # if not loop:
-        #     loop = get_event_loop()
-        if loop:
-            connection = await connect_robust(url, timeout=5, loop=loop)
-            debug(f"opened new RabbitMQ to host {url}")
-            return connection
-        return await connect_robust(url, timeout=5)
+        url = url + "?heartbeat=20&heartbeat_monitoring=1"
+        if not loop:
+            loop = get_event_loop()
+
+        print("Connecting with loop")
+        connection = await connect_robust(url, timeout=20, loop=loop)
+        debug(f"opened new RabbitMQ to host {url}")
+        return connection
 
     async def message_count(self) -> int:
         """
@@ -352,9 +354,12 @@ class _Consumer:
         self.queue = await self._declare_queue(queue_options)
 
 
-def getPublisher(rabbitmq_url: str, queue_name: str, queue_options: Dict[str, Any] = {}):  # noqa: E501
-    return RabbitMQ(url=rabbitmq_url, queue_name=queue_name, rmq_type="publisher", queue_options=queue_options)  # noqa: E501
+def getPublisher(rabbitmq_url: str, queue_name: str, loop: AbstractEventLoop, queue_options: Dict[str, Any] = {}):  # noqa: E501
+    print(threading.get_ident())
+    return RabbitMQ(url=rabbitmq_url, queue_name=queue_name, rmq_type="publisher", queue_options=queue_options, loop=loop)  # noqa: E501
 
 
 def getConsumer(rabbitmq_url: str, queue_name: str, callback: FuncType, loop: AbstractEventLoop):  # noqa: E501
+    print("Loop: ", loop)
+    print(threading.get_ident())
     return RabbitMQ(url=rabbitmq_url, queue_name=queue_name, rmq_type="consumer", callback=callback, loop=loop)  # noqa: E501

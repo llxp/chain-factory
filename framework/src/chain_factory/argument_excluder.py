@@ -1,4 +1,10 @@
 class ArgumentExcluder:
+    """
+    This class is used to exclude arguments from the arguments dictionary,
+    before saving the task in the database
+    If the arguments dictionary contains an "exclude" key,
+    the values of this key will be excluded from the arguments
+    """
     def __init__(self, arguments):
         self.arguments = arguments
         self.arguments_copy = dict(arguments)
@@ -25,5 +31,8 @@ class ArgumentExcluder:
                 self._check_exclude_argument(argument, excluded_argument)
 
     def exclude(self):
+        """
+        Exclude the arguments from the arguments dictionary
+        """
         if self._should_exclude_any_arguments():
             self._exclude_arguments()

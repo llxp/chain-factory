@@ -1,9 +1,7 @@
-# from threading import Thread
 from _thread import interrupt_main
 from datetime import datetime
-from asyncio import run_coroutine_threadsafe, sleep
+from asyncio import sleep
 from asyncio import AbstractEventLoop
-from threading import Thread
 
 # direct imports
 from .client_pool import ClientPool
@@ -33,15 +31,13 @@ class ClusterHeartbeat():
         self.heartbeat_running = False
         self.loop = loop
         self.task = None
-        self.thread = Thread(target=self._heartbeat_thread)
 
     def start_heartbeat(self):
         """
         starts the heartbeat thread
         """
         self.heartbeat_running = True
-        # self._heartbeat_thread()
-        self.thread.start()
+        self._heartbeat_thread()
 
     def stop_heartbeat(self):
         """
@@ -49,9 +45,8 @@ class ClusterHeartbeat():
         """
         if self.heartbeat_running:
             self.heartbeat_running = False
-            # if self.task:
-            #     gather(self.task)
-            # self.thread.join()
+            if self.task:
+                self.task.cancel()
 
     def _current_timestamp(self):
         return datetime.utcnow()
@@ -83,9 +78,7 @@ class ClusterHeartbeat():
         and waits a specified amount of time
         repeats as long as the node is running
         """
-        coroutine = self._run_loop()
-        self.task = run_coroutine_threadsafe(coroutine, self.loop)
-        self.task.result()
+        self.task = self.loop.create_task(self._run_loop())
 
     async def _run_loop(self):
         redis_client = await self._client_pool.redis_client()

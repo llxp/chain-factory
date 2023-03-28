@@ -16,6 +16,9 @@ from ..common.settings import task_log_to_external
 
 
 class BytesIOWrapper(BytesIO):
+    """
+    Wrapper for BytesIO to write to stdout and mongodb
+    """
     def __init__(
         self,
         task_id: str,

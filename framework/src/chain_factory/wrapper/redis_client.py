@@ -5,17 +5,12 @@ from logging import debug
 from redis.client import PubSub
 from redis.client import StrictRedis
 from redis.exceptions import ConnectionError
-from threading import Lock
+# from threading import Lock
 from typing import Dict
 from typing import Any
 from typing import List
 from typing import Optional
 from redis_sentinel_url import connect as rsu_connect
-# from aioredis.exceptions import TimeoutError
-
-# decorators
-# from ..decorators.repeat import repeat
-# from ..decorators.repeat import repeat_async
 
 connection_pools: Dict[str, List[StrictRedis]] = {}
 
@@ -36,7 +31,7 @@ class RedisClient():
         self._connection: StrictRedis = self._get_connection(redis_url=redis_url)  # noqa: E501
         self._key_prefix = key_prefix
         self._pubsub_connection: PubSub = self._get_pubsub_connection()
-        self.mutex = Lock()
+        # self.mutex = Lock()
 
     @property
     def key_prefix(self) -> str:
@@ -135,20 +130,20 @@ class RedisClient():
     async def unsubscribe(self, channel: str):
         return self._pubsub_connection.unsubscribe(channel)
 
-    # async def listen(self):
-    #     future = self._pubsub_connection.listen()
-    #     result = ensure_future(future, loop=self.loop)
-    #     await wait([result])
-    #     return result.result()
-
     async def get_message(self) -> Optional[Dict[str, Any]]:
         try:
-            self.mutex.acquire()
-            return self._pubsub_connection.get_message(ignore_subscribe_messages=True)  # noqa: E501
+            # mutex, so that only one thread can read at a time
+            # self.mutex.acquire()
+            # get_message() returns None if there are no messages
+            return self._pubsub_connection.get_message(
+                ignore_subscribe_messages=True
+            )
         except ConnectionError:
             return None
         finally:
-            self.mutex.release()
+            pass
+            # release the mutex, so that another thread can read
+            # self.mutex.release()
 
     async def publish(self, channel: str, obj) -> int:
         channel = self.prefixed(channel)

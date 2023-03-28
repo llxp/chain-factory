@@ -6,6 +6,11 @@ from typing import Type
 
 
 def parse_catcher(errors: Tuple[Type[Exception], ...] = (Exception, )):
+    """
+    Catches exceptions and prints them to stdout.
+    Returns None if an exception is caught
+    Used in QueueHandler and ListHandler
+    """
     def decorator(func):
         def new_func(*args, **kwargs):
             try:
