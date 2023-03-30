@@ -1,4 +1,4 @@
-sources_dir: docs/
+sources_dir: gendocs/
 templates_dir: docs_templates
 repo: https://github.com/llxp/chain-factory  # link to sources on github
 version: master #link to sources on github
@@ -114,6 +114,11 @@ pages:
     source: "framework/src/chain_factory/wrapper/list_handler.py"
     classes:
       - ListHandler
+  
+  - page: "private/task_handler/bytes_io_wrapper.md"
+    source: "framework/src/chain_factory/wrapper/bytes_io_wrapper.py"
+    classes:
+      - BytesIOWrapper
   # ----------------------------------------------------------------
 
   # API
